@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>がい数（概数）インタラクティブ解説</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+  }
+  h1 {
+    text-align: center;
+    color: white;
+    font-size: 1.8em;
+    margin-bottom: 6px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .subtitle {
+    text-align: center;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: 20px;
+    font-size: 1em;
+  }
+  .card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    padding: 28px;
+    max-width: 900px;
+    margin: 0 auto 24px;
+  }
+  .card-title {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #2d3a8c;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-title .badge {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: white;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.7em;
+  }
+
+  /* === Input Section === */
+  .input-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  .input-group {
+    flex: 1;
+    min-width: 180px;
+  }
+  .input-group label {
+    display: block;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 6px;
+    font-size: 0.9em;
+  }
+  .input-group input, .input-group select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e6f0;
+    border-radius: 12px;
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #2d3a8c;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .input-group input:focus, .input-group select:focus {
+    outline: none;
+    border-color: #4facfe;
+  }
+
+  /* === Digit Display === */
+  .digit-display {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  .digit-box {
+    width: 52px;
+    height: 64px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6em;
+    font-weight: 800;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+  }
+  .digit-box .place-name {
+    font-size: 0.35em;
+    font-weight: 600;
+    position: absolute;
+    top: -20px;
+    white-space: nowrap;
+  }
+  .digit-kept {
+    background: #e8f4fd;
+    color: #2d3a8c;
+    border: 2px solid #4facfe;
+  }
+  .digit-target {
+    background: #fff3e0;
+    color: #e65100;
+    border: 2px solid #ff9800;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .digit-dropped {
+    background: #fce4ec;
+    color: #c62828;
+    border: 2px solid #ef5350;
+    text-decoration: line-through;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  /* === Arrow === */
+  .arrow-section {
+    text-align: center;
+    margin: 16px 0;
+    font-size: 2em;
+    color: #4facfe;
+  }
+
+  /* === Result Display === */
+  .result-display {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin: 16px 0;
+  }
+  .result-box {
+    width: 52px;
+    height: 64px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6em;
+    font-weight: 800;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 2px solid #66bb6a;
+  }
+  .result-changed {
+    background: #c8e6c9;
+    border-color: #43a047;
+  }
+
+  /* === Method Cards === */
+  .methods {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+  }
+  @media (max-width: 600px) {
+    .methods { grid-template-columns: 1fr; }
+  }
+  .method-card {
+    padding: 16px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    border: 3px solid transparent;
+  }
+  .method-card:hover { transform: translateY(-2px); }
+  .method-card.selected { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+
+  .method-card.kirisute { background: #e3f2fd; }
+  .method-card.kirisute.selected { border-color: #1976d2; background: #bbdefb; }
+  .method-card.kiriage { background: #fce4ec; }
+  .method-card.kiriage.selected { border-color: #c62828; background: #f8bbd0; }
+  .method-card.shisha { background: #f3e5f5; }
+  .method-card.shisha.selected { border-color: #7b1fa2; background: #e1bee7; }
+
+  .method-card .method-num { font-size: 2em; margin-bottom: 4px; }
+  .method-card .method-name { font-size: 1.1em; font-weight: 700; }
+  .method-card .method-desc { font-size: 0.8em; color: #666; margin-top: 4px; line-height: 1.4; }
+
+  /* === Explanation Bubble === */
+  .explanation {
+    margin-top: 20px;
+    background: #fffde7;
+    border-left: 5px solid #fdd835;
+    border-radius: 0 14px 14px 0;
+    padding: 18px 22px;
+    font-size: 1em;
+    line-height: 1.8;
+    color: #5d4037;
+  }
+  .explanation b { color: #e65100; }
+  .step { margin-bottom: 8px; }
+  .step-num {
+    display: inline-block;
+    background: #ff9800;
+    color: white;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    font-size: 0.8em;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+
+  /* === Number Line === */
+  .numberline-container {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f5f7ff;
+    border-radius: 14px;
+  }
+  canvas {
+    width: 100%;
+    display: block;
+    cursor: pointer;
+  }
+  .range-answer {
+    margin-top: 14px;
+    padding: 14px 18px;
+    background: #e8f5e9;
+    border-radius: 12px;
+    font-size: 1.05em;
+    text-align: center;
+    font-weight: 600;
+    color: #2e7d32;
+    line-height: 1.6;
+  }
+
+  /* === Quiz Section === */
+  .quiz-section {
+    text-align: center;
+  }
+  .quiz-question {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #2d3a8c;
+    margin-bottom: 16px;
+  }
+  .quiz-options {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .quiz-option {
+    padding: 14px 28px;
+    border-radius: 14px;
+    border: 3px solid #e0e6f0;
+    background: white;
+    font-size: 1.2em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 120px;
+  }
+  .quiz-option:hover { border-color: #4facfe; background: #e8f4fd; }
+  .quiz-option.correct { border-color: #43a047; background: #c8e6c9; color: #2e7d32; }
+  .quiz-option.wrong { border-color: #ef5350; background: #ffcdd2; color: #c62828; }
+  .quiz-feedback {
+    font-size: 1.1em;
+    font-weight: 600;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .quiz-btn {
+    padding: 12px 32px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: white;
+    font-size: 1em;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: transform 0.2s;
+  }
+  .quiz-btn:hover { transform: scale(1.05); }
+
+  /* === Mode Toggle === */
+  .mode-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #4facfe;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 10px 14px;
+    border: none;
+    background: white;
+    color: #4facfe;
+    font-weight: 700;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: #4facfe;
+    color: white;
+  }
+  .mode-btn:hover:not(.active) {
+    background: #e8f4fd;
+  }
+
+  .slider-container {
+    margin: 10px 0;
+    text-align: center;
+  }
+  .slider-container input[type="range"] {
+    width: 80%;
+    accent-color: #4facfe;
+  }
+  .slider-value {
+    font-size: 2em;
+    font-weight: 800;
+    color: #2d3a8c;
+    margin: 8px 0;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>がい数（概数）インタラクティブ解説</h1>
+<p class="subtitle">スライダーや数字を変えて、切り捨て・切り上げ・四捨五入を体験しよう！</p>
+
+<!-- ===== ポイント① ===== -->
+<div class="card" id="point1">
+  <div class="card-title">
+    <span class="badge">ポイント①</span>
+    おおよその数にする3つの方法
+  </div>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label>数を入力しよう</label>
+      <input type="number" id="inputNumber" value="12345" min="1" max="9999999" oninput="update()">
+    </div>
+    <div class="input-group">
+      <label>指定のしかた</label>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modePlace" onclick="switchMode('place')">○の位まで</button>
+        <button class="mode-btn" id="modeKeta" onclick="switchMode('keta')">上から○桁</button>
+      </div>
+    </div>
+    <div class="input-group" id="placeSelectorWrap">
+      <label>どの位までのがい数？</label>
+      <select id="placeSelect" onchange="update()">
+        <option value="10">十の位</option>
+        <option value="100">百の位</option>
+        <option value="1000" selected>千の位</option>
+        <option value="10000">一万の位</option>
+        <option value="100000">十万の位</option>
+      </select>
+    </div>
+    <div class="input-group" id="ketaSelectorWrap" style="display:none;">
+      <label>上から何桁のがい数？</label>
+      <select id="ketaSelect" onchange="update()">
+        <option value="1">上から 1桁</option>
+        <option value="2" selected>上から 2桁</option>
+        <option value="3">上から 3桁</option>
+        <option value="4">上から 4桁</option>
+        <option value="5">上から 5桁</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="slider-container">
+    <label style="font-weight:600;color:#555;">スライダーで数を変えてみよう</label>
+    <div class="slider-value" id="sliderDisplay">12,345</div>
+    <input type="range" id="numberSlider" min="1000" max="99999" value="12345" oninput="onSlider()">
+  </div>
+
+  <div class="methods">
+    <div class="method-card kirisute selected" id="mc-kirisute" onclick="selectMethod('kirisute')">
+      <div class="method-num">①</div>
+      <div class="method-name">切り捨て</div>
+      <div class="method-desc">その位より下を<br>全部0にする</div>
+    </div>
+    <div class="method-card kiriage" id="mc-kiriage" onclick="selectMethod('kiriage')">
+      <div class="method-num">②</div>
+      <div class="method-name">切り上げ</div>
+      <div class="method-desc">その位より下を0にして<br>その位を1つ上げる</div>
+    </div>
+    <div class="method-card shisha" id="mc-shisha" onclick="selectMethod('shisha')">
+      <div class="method-num">③</div>
+      <div class="method-name">四捨五入</div>
+      <div class="method-desc">注目する位が0〜4→切り捨て<br>5〜9→切り上げ</div>
+    </div>
+  </div>
+
+  <!-- Original number digit display -->
+  <div style="text-align:center;margin-top:20px;font-weight:700;color:#555;">もとの数</div>
+  <div class="digit-display" id="originalDigits"></div>
+
+  <div class="arrow-section">⬇️</div>
+
+  <!-- Result digit display -->
+  <div style="text-align:center;font-weight:700;color:#2e7d32;">がい数にした結果</div>
+  <div class="result-display" id="resultDigits"></div>
+
+  <div class="explanation" id="explanation1"></div>
+</div>
+
+<!-- ===== ポイント② ===== -->
+<div class="card" id="point2">
+  <div class="card-title">
+    <span class="badge">ポイント②</span>
+    がい数のはんい（数直線で考えよう）
+  </div>
+
+  <p style="margin-bottom:12px;line-height:1.6;">
+    <b>問題：</b>四捨五入して<span id="rangePlace">一万</span>の位までのおよその数にしたら
+    <b><span id="rangeTarget">350000</span></b> になったよ。もとの数はどんな範囲？
+  </p>
+
+  <div class="input-row">
+    <div class="input-group">
+      <label>がい数の結果</label>
+      <input type="number" id="rangeInput" value="350000" min="10" max="9999999" oninput="updateRange()">
+    </div>
+    <div class="input-group">
+      <label>四捨五入した位</label>
+      <select id="rangePlaceSelect" onchange="updateRange()">
+        <option value="10">十の位</option>
+        <option value="100">百の位</option>
+        <option value="1000">千の位</option>
+        <option value="10000" selected>一万の位</option>
+        <option value="100000">十万の位</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="numberline-container">
+    <canvas id="numberline" height="140"></canvas>
+  </div>
+
+  <div class="range-answer" id="rangeAnswer"></div>
+
+  <div class="explanation" id="explanation2"></div>
+</div>
+
+<!-- ===== クイズ ===== -->
+<div class="card">
+  <div class="card-title">
+    <span class="badge">チャレンジ</span>
+    クイズに挑戦！
+  </div>
+  <div class="quiz-section">
+    <div class="quiz-question" id="quizQ"></div>
+    <div class="quiz-options" id="quizOptions"></div>
+    <div class="quiz-feedback" id="quizFeedback"></div>
+    <button class="quiz-btn" onclick="nextQuiz()">次の問題 →</button>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let currentMethod = 'kirisute';
+let currentMode = 'place'; // 'place' or 'keta'
+const placeNames = {
+  1: '一の位', 10: '十の位', 100: '百の位',
+  1000: '千の位', 10000: '一万の位', 100000: '十万の位',
+  1000000: '百万の位'
+};
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('modePlace').classList.toggle('active', mode === 'place');
+  document.getElementById('modeKeta').classList.toggle('active', mode === 'keta');
+  document.getElementById('placeSelectorWrap').style.display = mode === 'place' ? '' : 'none';
+  document.getElementById('ketaSelectorWrap').style.display = mode === 'keta' ? '' : 'none';
+  update();
+}
+
+function selectMethod(m) {
+  currentMethod = m;
+  document.querySelectorAll('.method-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('mc-' + m).classList.add('selected');
+  update();
+}
+
+function onSlider() {
+  const v = document.getElementById('numberSlider').value;
+  document.getElementById('inputNumber').value = v;
+  update();
+}
+
+function getPlace(num) {
+  if (currentMode === 'place') {
+    return parseInt(document.getElementById('placeSelect').value);
+  } else {
+    // 上からN桁 → place = 10^(桁数 - N)
+    const keta = parseInt(document.getElementById('ketaSelect').value);
+    const numDigits = String(num).length;
+    const exp = numDigits - keta;
+    return exp > 0 ? Math.pow(10, exp) : 1;
+  }
+}
+
+function update() {
+  const num = parseInt(document.getElementById('inputNumber').value) || 0;
+  const place = getPlace(num);
+
+  document.getElementById('sliderDisplay').textContent = num.toLocaleString();
+  document.getElementById('numberSlider').value = num;
+
+  // Adjust slider range
+  const slider = document.getElementById('numberSlider');
+  if (num > 50000) { slider.max = Math.max(999999, num * 2); }
+
+  const digits = String(num).split('').map(Number);
+  const len = digits.length;
+
+  // Which digit index is the "place" we're rounding to?
+  // place=1000 means 千の位. For num=12345 (5 digits), 千の位 is index 1
+  const placeIndex = len - Math.floor(Math.log10(place)) - 1;
+  // The "look at" digit is the one right below: placeIndex + 1
+  const lookIndex = placeIndex + 1;
+
+  // Build original digit display
+  const origContainer = document.getElementById('originalDigits');
+  origContainer.innerHTML = '';
+  for (let i = 0; i < len; i++) {
+    const box = document.createElement('div');
+    box.className = 'digit-box';
+    const p = Math.pow(10, len - 1 - i);
+    const pName = placeNames[p] || '';
+
+    if (i < placeIndex) {
+      box.classList.add('digit-kept');
+    } else if (i === lookIndex && currentMethod === 'shisha') {
+      box.classList.add('digit-target');
+    } else if (i >= placeIndex + 1) {
+      box.classList.add('digit-dropped');
+    } else {
+      box.classList.add('digit-kept');
+    }
+    box.innerHTML = `<span class="place-name">${pName}</span>${digits[i]}`;
+    origContainer.appendChild(box);
+  }
+
+  // Calculate result
+  let result;
+  const lowerPart = num % place;
+  const upperPart = num - lowerPart;
+
+  if (currentMethod === 'kirisute') {
+    result = upperPart;
+  } else if (currentMethod === 'kiriage') {
+    result = lowerPart > 0 ? upperPart + place : upperPart;
+  } else {
+    // 四捨五入: look at the digit one place below
+    const lookPlace = place / 10;
+    const lookDigit = Math.floor((num % place) / lookPlace);
+    result = lookDigit >= 5 ? upperPart + place : upperPart;
+  }
+
+  // Build result display
+  const resContainer = document.getElementById('resultDigits');
+  resContainer.innerHTML = '';
+  const resStr = String(result);
+  for (let i = 0; i < resStr.length; i++) {
+    const box = document.createElement('div');
+    box.className = 'result-box';
+    if (i < digits.length && resStr[i] !== String(digits[i])) {
+      box.classList.add('result-changed');
+    }
+    box.textContent = resStr[i];
+    resContainer.appendChild(box);
+  }
+
+  // Build explanation
+  const exp = document.getElementById('explanation1');
+  const numStr = num.toLocaleString();
+  const resStrF = result.toLocaleString();
+  const lookPlace = place / 10;
+  const lookDigit = Math.floor((num % place) / lookPlace);
+  const lookPlaceName = placeNames[lookPlace] || '';
+
+  // Description of how we're rounding
+  const ketaVal = parseInt(document.getElementById('ketaSelect').value);
+  const modeDesc = currentMode === 'keta'
+    ? `<b>上から${ketaVal}桁</b>のがい数（＝<b>${placeNames[place] || place + 'の位'}</b>まで）`
+    : `<b>${placeNames[place]}</b> までのがい数`;
+
+  let html = '';
+  if (currentMethod === 'kirisute') {
+    html = `
+      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を ${modeDesc}にします</div>
+      <div class="step"><span class="step-num">2</span> <b>切り捨て</b>は、${placeNames[place] || ''}より下の位をすべて <b>0</b> にします</div>
+      <div class="step"><span class="step-num">3</span> ${lookPlaceName}の数字 <b>${lookDigit}</b> をそのまま捨てて → <b>${resStrF}</b></div>
+    `;
+  } else if (currentMethod === 'kiriage') {
+    html = `
+      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を ${modeDesc}にします</div>
+      <div class="step"><span class="step-num">2</span> <b>切り上げ</b>は、${placeNames[place] || ''}より下を0にして、その位を <b>1つ大きく</b> します</div>
+      <div class="step"><span class="step-num">3</span> ${lowerPart > 0
+        ? `下の位に ${lowerPart} があるので切り上げて → <b>${resStrF}</b>`
+        : `下の位がすべて0なので、そのまま → <b>${resStrF}</b>`}</div>
+    `;
+  } else {
+    const action = lookDigit >= 5 ? '切り上げ' : '切り捨て';
+    const reason = lookDigit >= 5 ? '5以上なので切り上げ' : '4以下なので切り捨て';
+    html = `
+      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を ${modeDesc}にします</div>
+      <div class="step"><span class="step-num">2</span> <b>四捨五入</b>では、1つ下の <b>${lookPlaceName}</b> の数字を見ます → <b style="color:#e65100;font-size:1.2em;">${lookDigit}</b></div>
+      <div class="step"><span class="step-num">3</span> ${lookDigit} は <b>${reason}</b>します → <b>${resStrF}</b></div>
+    `;
+  }
+  exp.innerHTML = html;
+}
+
+// ===== ポイント② : 数直線 =====
+function updateRange() {
+  const target = parseInt(document.getElementById('rangeInput').value) || 0;
+  const place = parseInt(document.getElementById('rangePlaceSelect').value);
+  const half = place / 2;
+  const lower = target - half;
+  const upper = target + half;
+
+  const placeName = placeNames[place] || '';
+  document.getElementById('rangePlace').textContent = placeName.replace('の位', '');
+  document.getElementById('rangeTarget').textContent = target.toLocaleString();
+
+  // Draw number line
+  const canvas = document.getElementById('numberline');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = 280;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2); // retina
+  const W = canvas.offsetWidth, H = 140;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 60, padR = 60;
+  const lineY = 70;
+  const lineW = W - padL - padR;
+
+  // Main line
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(padL, lineY);
+  ctx.lineTo(padL + lineW, lineY);
+  ctx.stroke();
+
+  // Arrow
+  ctx.beginPath();
+  ctx.moveTo(padL + lineW, lineY);
+  ctx.lineTo(padL + lineW - 10, lineY - 6);
+  ctx.moveTo(padL + lineW, lineY);
+  ctx.lineTo(padL + lineW - 10, lineY + 6);
+  ctx.stroke();
+
+  // Three marks: lower, target, upper
+  const marks = [
+    { val: lower, x: padL + lineW * 0.15, color: '#1976d2', label: lower.toLocaleString() },
+    { val: target, x: padL + lineW * 0.5, color: '#e65100', label: target.toLocaleString() },
+    { val: upper, x: padL + lineW * 0.85, color: '#c62828', label: upper.toLocaleString() },
+  ];
+
+  marks.forEach(m => {
+    ctx.beginPath();
+    ctx.moveTo(m.x, lineY - 14);
+    ctx.lineTo(m.x, lineY + 14);
+    ctx.strokeStyle = m.color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = m.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(m.label, m.x, lineY + 32);
+  });
+
+  // Highlight range (lower to upper)
+  const rangeStartX = marks[0].x;
+  const rangeEndX = marks[2].x;
+
+  // Filled range
+  ctx.fillStyle = 'rgba(76, 175, 80, 0.2)';
+  ctx.fillRect(rangeStartX, lineY - 10, rangeEndX - rangeStartX, 20);
+
+  // Range brackets
+  ctx.strokeStyle = '#43a047';
+  ctx.lineWidth = 3;
+  // Left bracket (closed: >=)
+  ctx.beginPath();
+  ctx.moveTo(rangeStartX + 8, lineY - 22);
+  ctx.lineTo(rangeStartX, lineY - 22);
+  ctx.lineTo(rangeStartX, lineY + 42);
+  ctx.lineTo(rangeStartX + 8, lineY + 42);
+  ctx.stroke();
+  // Right bracket (open: <)
+  ctx.beginPath();
+  ctx.setLineDash([4, 3]);
+  ctx.moveTo(rangeEndX - 8, lineY - 22);
+  ctx.lineTo(rangeEndX, lineY - 22);
+  ctx.lineTo(rangeEndX, lineY + 42);
+  ctx.lineTo(rangeEndX - 8, lineY + 42);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = '#43a047';
+  ctx.textAlign = 'center';
+  ctx.fillText('以上 ≧', rangeStartX, lineY - 28);
+  ctx.fillStyle = '#c62828';
+  ctx.fillText('未満 <', rangeEndX, lineY - 28);
+
+  // Center label
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillStyle = '#e65100';
+  ctx.fillText('四捨五入すると →  ' + target.toLocaleString(), (rangeStartX + rangeEndX) / 2, lineY + 56);
+
+  // Draggable dot
+  const dotX = padL + lineW * 0.35;
+  ctx.beginPath();
+  ctx.arc(dotX, lineY, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff5722';
+  ctx.fill();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Answer
+  const ans = document.getElementById('rangeAnswer');
+  ans.innerHTML = `もとの数の範囲: <b>${lower.toLocaleString()} 以上</b>、<b>${upper.toLocaleString()} 未満</b>`;
+
+  // Explanation
+  const exp2 = document.getElementById('explanation2');
+  exp2.innerHTML = `
+    <div class="step"><span class="step-num">1</span> 四捨五入して <b>${target.toLocaleString()}</b> になるということは、1つ下の位の数字が <b>0〜9</b> のどれかだったはず</div>
+    <div class="step"><span class="step-num">2</span> 切り捨てられる最小は <b>${lower.toLocaleString()}</b>（${placeName}の1つ下が0〜4）→ これ<b>以上</b></div>
+    <div class="step"><span class="step-num">3</span> 切り上げられる最大は <b>${(upper - 1).toLocaleString()}</b>（${placeName}の1つ下が5〜9）→ <b>${upper.toLocaleString()} 未満</b></div>
+    <div class="step"><span class="step-num">✓</span> 答え: <b>${lower.toLocaleString()} 以上 ${upper.toLocaleString()} 未満</b></div>
+  `;
+}
+
+// ===== クイズ =====
+const quizzes = [
+  { q: '12345を千の位までのがい数にしよう（切り捨て）', opts: ['12000', '13000', '12300'], ans: 0 },
+  { q: '12345を千の位までのがい数にしよう（切り上げ）', opts: ['12000', '13000', '12400'], ans: 1 },
+  { q: '12345を千の位までのがい数にしよう（四捨五入）', opts: ['12000', '13000', '12500'], ans: 0 },
+  { q: '6789を百の位までのがい数にしよう（四捨五入）', opts: ['6700', '6800', '6900'], ans: 1 },
+  { q: '四捨五入して350000になる数の範囲は？', opts: ['345000以上 355000未満', '340000以上 360000未満', '350000以上 360000未満'], ans: 0 },
+  { q: '48523を一万の位までのがい数にしよう（四捨五入）', opts: ['40000', '50000', '48000'], ans: 1 },
+  { q: '3456を百の位までのがい数にしよう（切り捨て）', opts: ['3400', '3500', '3000'], ans: 0 },
+  { q: '四捨五入して20000になる数の範囲は？', opts: ['15000以上 25000未満', '19000以上 21000未満', '19500以上 20500未満'], ans: 0 },
+  { q: '7777を千の位までのがい数にしよう（四捨五入）', opts: ['7000', '8000', '7800'], ans: 1 },
+  { q: '2350を百の位までのがい数にしよう（切り上げ）', opts: ['2300', '2400', '2350'], ans: 1 },
+];
+let quizIndex = 0;
+
+function showQuiz() {
+  const q = quizzes[quizIndex % quizzes.length];
+  document.getElementById('quizQ').textContent = q.q;
+  const container = document.getElementById('quizOptions');
+  container.innerHTML = '';
+  document.getElementById('quizFeedback').textContent = '';
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'quiz-option';
+    btn.textContent = opt;
+    btn.onclick = () => checkAnswer(i, q.ans, btn);
+    container.appendChild(btn);
+  });
+}
+
+function checkAnswer(selected, correct, btn) {
+  const options = document.querySelectorAll('.quiz-option');
+  options.forEach((o, i) => {
+    o.style.pointerEvents = 'none';
+    if (i === correct) o.classList.add('correct');
+    if (i === selected && i !== correct) o.classList.add('wrong');
+  });
+  const fb = document.getElementById('quizFeedback');
+  if (selected === correct) {
+    fb.textContent = '🎉 正解！すごい！';
+    fb.style.color = '#2e7d32';
+  } else {
+    fb.textContent = '😢 残念… 正解は緑のボタンだよ。もう一度考えてみよう！';
+    fb.style.color = '#c62828';
+  }
+}
+
+function nextQuiz() {
+  quizIndex++;
+  showQuiz();
+}
+
+// ===== INIT =====
+update();
+updateRange();
+showQuiz();
+
+// Responsive canvas
+window.addEventListener('resize', updateRange);
+</script>
+</body>
+</html>
