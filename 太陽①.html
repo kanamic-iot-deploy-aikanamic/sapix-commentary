@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>太陽① インタラクティブ解説</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Hiragino Sans', 'Meiryo', sans-serif;
+    background: linear-gradient(135deg, #ff9a56 0%, #ff6f61 50%, #ffb347 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+  }
+  h1 { text-align: center; color: white; font-size: 2em; text-shadow: 0 2px 8px rgba(0,0,0,0.25); margin-bottom: 4px; }
+  .subtitle { text-align: center; color: rgba(255,255,255,0.92); margin-bottom: 20px; font-size: 1em; }
+  .card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    padding: 28px;
+    max-width: 960px;
+    margin: 0 auto 24px;
+  }
+  .card-title {
+    font-size: 1.3em; font-weight: 700; color: #c62828;
+    margin-bottom: 18px; display: flex; align-items: center; gap: 10px;
+  }
+  .card-title .badge {
+    background: linear-gradient(135deg, #ff6f61, #ffb347);
+    color: white; padding: 4px 14px; border-radius: 20px; font-size: 0.7em;
+  }
+
+  /* ===== TABS ===== */
+  .tabs { display: flex; gap: 0; margin-bottom: 0; }
+  .tab {
+    flex: 1; padding: 14px; text-align: center; font-weight: 700; font-size: 1em;
+    cursor: pointer; border-radius: 16px 16px 0 0; transition: all 0.3s;
+    border: 2px solid transparent; border-bottom: none;
+  }
+  .tab.active-tab1 { background: white; color: #c62828; border-color: #ffcdd2; }
+  .tab.active-tab2 { background: white; color: #1565c0; border-color: #bbdefb; }
+  .tab:not([class*="active"]) { background: rgba(255,255,255,0.5); color: #666; }
+  .tab:hover:not([class*="active"]) { background: rgba(255,255,255,0.8); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ===== MIND MAP ===== */
+  .mindmap-container {
+    overflow-x: auto; padding: 10px; cursor: grab;
+  }
+  .mindmap-container:active { cursor: grabbing; }
+  .mm-svg { width: 100%; min-width: 800px; }
+
+  /* ===== Mind Map Node Styles ===== */
+  .mm-center { fill: #ff6f61; }
+  .mm-branch1 { fill: #42a5f5; }
+  .mm-branch2 { fill: #66bb6a; }
+  .mm-branch3 { fill: #ffb74d; }
+  .mm-branch4 { fill: #ab47bc; }
+  .mm-branch5 { fill: #26c6da; }
+  .mm-text { fill: white; font-weight: 700; font-size: 13px; text-anchor: middle; dominant-baseline: central; }
+  .mm-text-sm { fill: #333; font-size: 11px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+  .mm-leaf { fill: #f5f5f5; stroke: #ccc; stroke-width: 1.5; rx: 10; }
+  .mm-line { stroke-width: 2.5; fill: none; opacity: 0.6; }
+
+  /* ===== INTERACTIVE SIM ===== */
+  .sim-canvas-wrap {
+    position: relative; background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 55%, #8BC34A 55%, #6d9b2f 100%);
+    border-radius: 16px; overflow: hidden; height: 400px; margin-bottom: 16px;
+  }
+  #simCanvas { width: 100%; height: 100%; display: block; }
+
+  .time-control {
+    text-align: center; padding: 10px 0;
+  }
+  .time-display {
+    font-size: 2.5em; font-weight: 800; color: #c62828;
+    font-family: 'Courier New', monospace; margin-bottom: 6px;
+  }
+  .time-slider { width: 90%; accent-color: #ff6f61; }
+
+  .play-btn {
+    padding: 10px 30px; border-radius: 30px; border: none;
+    background: linear-gradient(135deg, #ff6f61, #ffb347);
+    color: white; font-size: 1em; font-weight: 700; cursor: pointer;
+    margin: 8px 4px; transition: transform 0.2s;
+  }
+  .play-btn:hover { transform: scale(1.05); }
+  .play-btn.active { background: linear-gradient(135deg, #c62828, #ff6f61); }
+
+  /* Data panels */
+  .data-panels {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px;
+  }
+  @media (max-width: 700px) { .data-panels { grid-template-columns: repeat(2, 1fr); } }
+  .data-card {
+    border-radius: 14px; padding: 14px; text-align: center;
+    border: 2px solid #eee;
+  }
+  .data-card .label { font-size: 0.8em; color: #888; margin-bottom: 2px; }
+  .data-card .value { font-size: 1.6em; font-weight: 800; }
+  .data-card .unit { font-size: 0.7em; color: #aaa; }
+
+  .dc-sun { background: #fff8e1; }
+  .dc-sun .value { color: #e65100; }
+  .dc-shadow { background: #e8eaf6; }
+  .dc-shadow .value { color: #283593; }
+  .dc-temp { background: #fce4ec; }
+  .dc-temp .value { color: #c62828; }
+  .dc-ground { background: #e8f5e9; }
+  .dc-ground .value { color: #2e7d32; }
+
+  /* Chart */
+  .chart-container { margin-top: 20px; background: #fafbff; border-radius: 14px; padding: 16px; }
+  #chartCanvas { width: 100%; height: 200px; display: block; }
+
+  /* Legend */
+  .legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; flex-wrap: wrap; font-size: 0.85em; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 50%; }
+
+  /* Explanation */
+  .explanation {
+    margin-top: 16px; background: #fffde7; border-left: 5px solid #fdd835;
+    border-radius: 0 14px 14px 0; padding: 16px 20px;
+    font-size: 0.95em; line-height: 1.8; color: #5d4037;
+  }
+
+  /*百葉箱 & アメダス info */
+  .info-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px;
+  }
+  @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+  .info-box {
+    border-radius: 14px; padding: 18px; border: 2px solid #e0e0e0;
+  }
+  .info-box h3 { font-size: 1.1em; margin-bottom: 8px; }
+  .info-box p { font-size: 0.9em; line-height: 1.6; color: #555; }
+
+  .highlight { background: #fff9c4; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>太陽① インタラクティブ解説</h1>
+<p class="subtitle">マインドマップで知識を整理 & シミュレーションで体験しよう！</p>
+
+<!-- TABS -->
+<div style="max-width:960px;margin:0 auto;">
+  <div class="tabs">
+    <div class="tab active-tab1" id="tab1" onclick="switchTab(1)">🗺️ マインドマップ</div>
+    <div class="tab" id="tab2" onclick="switchTab(2)">☀️ インタラクティブ解説</div>
+  </div>
+</div>
+
+<!-- ==================== TAB 1: MIND MAP ==================== -->
+<div class="card tab-content active" id="content1" style="border-radius:0 0 20px 20px;">
+  <div class="card-title"><span class="badge">知識整理</span>太陽① マインドマップ</div>
+  <div class="mindmap-container">
+    <svg class="mm-svg" viewBox="0 0 960 720" xmlns="http://www.w3.org/2000/svg">
+      <!-- CENTER NODE -->
+      <ellipse cx="480" cy="360" rx="70" ry="36" class="mm-center" filter="url(#shadow)"/>
+      <text x="480" y="360" class="mm-text" font-size="16">太陽①</text>
+
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#00000033"/>
+        </filter>
+      </defs>
+
+      <!-- ===== BRANCH 1: 太陽によって起こること (top-right) ===== -->
+      <path d="M550,360 C620,360 620,140 680,140" class="mm-line" stroke="#42a5f5"/>
+      <rect x="620" y="118" width="200" height="44" rx="22" class="mm-branch1" filter="url(#shadow)"/>
+      <text x="720" y="140" class="mm-text" font-size="13">太陽によって起こること</text>
+
+      <!-- Leaf: 明るさ -->
+      <line x1="720" y1="118" x2="640" y2="56" stroke="#42a5f5" stroke-width="1.5" opacity="0.5"/>
+      <rect x="565" y="34" width="150" height="36" class="mm-leaf"/>
+      <text x="640" y="52" class="mm-text-sm">朝☀️明るい → 夕🌙暗い</text>
+
+      <!-- Leaf: あたたかさ -->
+      <line x1="720" y1="118" x2="790" y2="56" stroke="#42a5f5" stroke-width="1.5" opacity="0.5"/>
+      <rect x="720" y="34" width="170" height="36" class="mm-leaf"/>
+      <text x="805" y="52" class="mm-text-sm">太陽が高い→あたたかい</text>
+
+      <!-- ===== BRANCH 2: 日なたと日かげ (right) ===== -->
+      <path d="M550,360 C630,360 620,280 700,280" class="mm-line" stroke="#66bb6a"/>
+      <rect x="640" y="258" width="180" height="44" rx="22" class="mm-branch2" filter="url(#shadow)"/>
+      <text x="730" y="280" class="mm-text" font-size="13">日なたと日かげ</text>
+
+      <!-- Leaf -->
+      <line x1="820" y1="270" x2="870" y2="230" stroke="#66bb6a" stroke-width="1.5" opacity="0.5"/>
+      <rect x="820" y="210" width="130" height="36" class="mm-leaf"/>
+      <text x="885" y="228" class="mm-text-sm">日なた＝あたたかい</text>
+
+      <line x1="820" y1="290" x2="870" y2="320" stroke="#66bb6a" stroke-width="1.5" opacity="0.5"/>
+      <rect x="820" y="302" width="130" height="36" class="mm-leaf"/>
+      <text x="885" y="320" class="mm-text-sm">日かげ＝すずしい</text>
+
+      <!-- ===== BRANCH 3: かげのでき方 (bottom-right) ===== -->
+      <path d="M550,370 C620,400 620,480 680,480" class="mm-line" stroke="#ffb74d"/>
+      <rect x="620" y="458" width="180" height="44" rx="22" class="mm-branch3" filter="url(#shadow)"/>
+      <text x="710" y="480" class="mm-text" font-size="13">かげのでき方</text>
+
+      <!-- Leaves -->
+      <line x1="710" y1="502" x2="650" y2="545" stroke="#ffb74d" stroke-width="1.5" opacity="0.5"/>
+      <rect x="545" y="528" width="210" height="36" class="mm-leaf"/>
+      <text x="650" y="546" class="mm-text-sm">太陽の光がさえぎられて影ができる</text>
+
+      <line x1="710" y1="502" x2="770" y2="545" stroke="#ffb74d" stroke-width="1.5" opacity="0.5"/>
+      <rect x="680" y="570" width="200" height="36" class="mm-leaf"/>
+      <text x="780" y="588" class="mm-text-sm">太陽の反対側にかげができる</text>
+
+      <line x1="710" y1="502" x2="710" y2="630" stroke="#ffb74d" stroke-width="1.5" opacity="0.5"/>
+      <rect x="610" y="618" width="200" height="36" class="mm-leaf"/>
+      <text x="710" y="636" class="mm-text-sm">太陽が高い→かげが短い</text>
+
+      <line x1="710" y1="502" x2="560" y2="600" stroke="#ffb74d" stroke-width="1.5" opacity="0.5"/>
+      <rect x="430" y="582" width="200" height="36" class="mm-leaf"/>
+      <text x="530" y="600" class="mm-text-sm">太陽が低い→かげが長い</text>
+
+      <!-- ===== BRANCH 4: 気温のはかり方 (top-left) ===== -->
+      <path d="M410,360 C340,360 340,160 260,160" class="mm-line" stroke="#ab47bc"/>
+      <rect x="150" y="138" width="180" height="44" rx="22" class="mm-branch4" filter="url(#shadow)"/>
+      <text x="240" y="160" class="mm-text" font-size="13">気温のはかり方</text>
+
+      <!-- Leaves -->
+      <line x1="240" y1="138" x2="120" y2="80" stroke="#ab47bc" stroke-width="1.5" opacity="0.5"/>
+      <rect x="20" y="60" width="200" height="36" class="mm-leaf"/>
+      <text x="120" y="78" class="mm-text-sm">温度計は日かげで測る</text>
+
+      <line x1="240" y1="138" x2="310" y2="80" stroke="#ab47bc" stroke-width="1.5" opacity="0.5"/>
+      <rect x="218" y="60" width="190" height="36" class="mm-leaf"/>
+      <text x="313" y="78" class="mm-text-sm">高さ1.2〜1.5mで測る</text>
+
+      <line x1="150" y1="165" x2="70" y2="165" stroke="#ab47bc" stroke-width="1.5" opacity="0.5"/>
+      <rect x="5" y="114" width="130" height="36" class="mm-leaf"/>
+      <text x="70" y="132" class="mm-text-sm">風通しのよい所</text>
+
+      <!-- ===== BRANCH 5: 百葉箱・アメダス (left) ===== -->
+      <path d="M410,370 C340,370 340,420 260,440" class="mm-line" stroke="#26c6da"/>
+      <rect x="130" y="418" width="200" height="44" rx="22" class="mm-branch5" filter="url(#shadow)"/>
+      <text x="230" y="440" class="mm-text" font-size="13">百葉箱・アメダス</text>
+
+      <!-- Leaves -->
+      <line x1="230" y1="462" x2="140" y2="510" stroke="#26c6da" stroke-width="1.5" opacity="0.5"/>
+      <rect x="24" y="493" width="230" height="36" class="mm-leaf"/>
+      <text x="139" y="511" class="mm-text-sm">百葉箱：白い箱・風通し・日かげ</text>
+
+      <line x1="230" y1="462" x2="310" y2="510" stroke="#26c6da" stroke-width="1.5" opacity="0.5"/>
+      <rect x="210" y="493" width="220" height="36" class="mm-leaf"/>
+      <text x="320" y="511" class="mm-text-sm">アメダス：全国約1300か所</text>
+
+      <line x1="140" y1="529" x2="100" y2="570" stroke="#26c6da" stroke-width="1.5" opacity="0.5"/>
+      <rect x="10" y="555" width="200" height="36" class="mm-leaf"/>
+      <text x="110" y="573" class="mm-text-sm">気温・雨量・風向・風速を観測</text>
+
+      <!-- ===== BRANCH 6: 地面のあたたまり方 (bottom-left) ===== -->
+      <path d="M420,390 C360,420 300,530 240,580" class="mm-line" stroke="#ef5350"/>
+      <rect x="100" y="608" width="200" height="44" rx="22" fill="#ef5350" filter="url(#shadow)"/>
+      <text x="200" y="630" class="mm-text" font-size="13">地面のあたたまり方</text>
+
+      <line x1="200" y1="652" x2="130" y2="690" stroke="#ef5350" stroke-width="1.5" opacity="0.5"/>
+      <rect x="18" y="672" width="220" height="36" class="mm-leaf"/>
+      <text x="128" y="690" class="mm-text-sm">日なたの地面は温度が高い</text>
+
+      <line x1="200" y1="652" x2="310" y2="690" stroke="#ef5350" stroke-width="1.5" opacity="0.5"/>
+      <rect x="220" y="672" width="220" height="36" class="mm-leaf"/>
+      <text x="330" y="690" class="mm-text-sm">日かげの地面は温度が低い</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: INTERACTIVE SIM ==================== -->
+<div class="card tab-content" id="content2" style="border-radius:0 0 20px 20px;">
+  <div class="card-title"><span class="badge">体験</span>太陽の動き・影・気温シミュレーション</div>
+
+  <div class="sim-canvas-wrap">
+    <canvas id="simCanvas"></canvas>
+  </div>
+
+  <div class="time-control">
+    <div class="time-display" id="timeDisplay">12:00</div>
+    <input type="range" class="time-slider" id="timeSlider" min="5" max="19" step="0.1" value="12" oninput="onTimeChange()">
+    <div>
+      <button class="play-btn" id="playBtn" onclick="togglePlay()">▶ 自動再生</button>
+      <button class="play-btn" onclick="setTime(6)">🌅 朝</button>
+      <button class="play-btn" onclick="setTime(12)">☀️ 昼</button>
+      <button class="play-btn" onclick="setTime(17)">🌇 夕方</button>
+    </div>
+  </div>
+
+  <div class="data-panels">
+    <div class="data-card dc-sun">
+      <div class="label">太陽の高さ（高度）</div>
+      <div class="value" id="dataSunAlt">—</div>
+      <div class="unit">度</div>
+    </div>
+    <div class="data-card dc-shadow">
+      <div class="label">影の長さ</div>
+      <div class="value" id="dataShadow">—</div>
+      <div class="unit">倍（身長の）</div>
+    </div>
+    <div class="data-card dc-temp">
+      <div class="label">気温</div>
+      <div class="value" id="dataTemp">—</div>
+      <div class="unit">℃</div>
+    </div>
+    <div class="data-card dc-ground">
+      <div class="label">地面の温度</div>
+      <div class="value" id="dataGround">—</div>
+      <div class="unit">℃</div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="chartCanvas"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e65100;"></div>太陽の高度</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c62828;"></div>気温</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#283593;"></div>影の長さ</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2e7d32;"></div>地面の温度</div>
+    </div>
+  </div>
+
+  <div class="explanation" id="simExplanation"></div>
+
+  <div class="info-grid">
+    <div class="info-box" style="border-color:#ab47bc;">
+      <h3 style="color:#ab47bc;">🏠 百葉箱（ひゃくようばこ）</h3>
+      <p>気温を正しく測るための<span class="highlight">白い箱</span>。白いのは太陽の熱を反射するため。<span class="highlight">風通し</span>がよくて、<span class="highlight">日かげ</span>で、地面から<span class="highlight">1.2〜1.5m</span>の高さに温度計を置きます。</p>
+    </div>
+    <div class="info-box" style="border-color:#26c6da;">
+      <h3 style="color:#26c6da;">🛰️ アメダス</h3>
+      <p>全国約<span class="highlight">1300か所</span>にある自動観測システム。<span class="highlight">気温・雨量・風向・風速</span>をコンピュータで自動観測しています。それぞれの地域の天気を詳しく知ることができます。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== TAB SWITCHING =====
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach(t => { t.className = 'tab'; });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab' + n).classList.add('active-tab' + n);
+  document.getElementById('content' + n).classList.add('active');
+  if (n === 2) { initSim(); drawChart(); }
+}
+
+// ===== SIMULATION =====
+const simCanvas = document.getElementById('simCanvas');
+const simCtx = simCanvas.getContext('2d');
+let currentTime = 12;
+let playing = false;
+let animFrame;
+
+function initSim() {
+  const wrap = simCanvas.parentElement;
+  simCanvas.width = wrap.offsetWidth * 2;
+  simCanvas.height = wrap.offsetHeight * 2;
+  simCtx.scale(2, 2);
+  drawSim();
+}
+
+function getSunAngle(t) {
+  // Sun rises at 5, peaks at 12, sets at 19
+  // Angle: 0 at rise/set, ~75 at peak
+  const peak = 12;
+  const range = 7;
+  const normalized = 1 - Math.abs(t - peak) / range;
+  return Math.max(0, normalized * 75);
+}
+
+function getTemp(t) {
+  // Temp peaks around 14:00 (lags behind sun)
+  const peak = 14;
+  const base = 8;
+  const amp = 22;
+  const norm = 1 - Math.pow((t - peak) / 8, 2);
+  return base + amp * Math.max(0, norm);
+}
+
+function getGroundTemp(t) {
+  // Ground temp peaks around 13:00
+  const peak = 13;
+  const base = 10;
+  const amp = 35;
+  const norm = 1 - Math.pow((t - peak) / 7, 2);
+  return base + amp * Math.max(0, norm);
+}
+
+function getShadowLength(angle) {
+  if (angle <= 0) return 99;
+  return 1 / Math.tan(angle * Math.PI / 180);
+}
+
+function drawSim() {
+  const W = simCanvas.width / 2;
+  const H = simCanvas.height / 2;
+  const ctx = simCtx;
+  ctx.clearRect(0, 0, W, H);
+
+  const sunAngle = getSunAngle(currentTime);
+  const temp = getTemp(currentTime);
+  const groundTemp = getGroundTemp(currentTime);
+  const shadowLen = getShadowLength(sunAngle);
+
+  // Sky gradient based on time
+  const dayness = Math.max(0, Math.min(1, sunAngle / 30));
+  const grad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+  if (dayness > 0.5) {
+    grad.addColorStop(0, '#4a90d9');
+    grad.addColorStop(1, '#87CEEB');
+  } else if (dayness > 0) {
+    grad.addColorStop(0, lerpColor('#1a1a3e', '#4a90d9', dayness * 2));
+    grad.addColorStop(1, lerpColor('#ff6b35', '#87CEEB', dayness * 2));
+  } else {
+    grad.addColorStop(0, '#1a1a3e');
+    grad.addColorStop(1, '#2d2d5e');
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H * 0.6);
+
+  // Ground
+  const groundGrad = ctx.createLinearGradient(0, H * 0.6, 0, H);
+  groundGrad.addColorStop(0, '#7cb342');
+  groundGrad.addColorStop(1, '#558b2f');
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, H * 0.6, W, H * 0.4);
+
+  // Sun position (arc across sky)
+  const sunProgress = (currentTime - 5) / 14; // 0 at 5am, 1 at 19pm
+  const sunX = W * 0.1 + sunProgress * W * 0.8;
+  const sunY = H * 0.6 - Math.sin(sunProgress * Math.PI) * H * 0.5;
+
+  if (sunAngle > 0) {
+    // Sun glow
+    const glowGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 80);
+    glowGrad.addColorStop(0, 'rgba(255,200,50,0.4)');
+    glowGrad.addColorStop(1, 'rgba(255,200,50,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(sunX - 80, sunY - 80, 160, 160);
+
+    // Sun
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 30, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+    ctx.strokeStyle = '#FFA000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Sun rays
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(sunX + Math.cos(a) * 34, sunY + Math.sin(a) * 34);
+      ctx.lineTo(sunX + Math.cos(a) * 46, sunY + Math.sin(a) * 46);
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    // Light rays to person
+    if (sunAngle > 5) {
+      ctx.beginPath();
+      ctx.moveTo(sunX, sunY);
+      const personX = W * 0.5;
+      const personY = H * 0.6 - 50;
+      ctx.lineTo(personX, personY);
+      ctx.strokeStyle = 'rgba(255,220,100,0.2)';
+      ctx.lineWidth = 20;
+      ctx.stroke();
+    }
+  } else {
+    // Moon
+    ctx.beginPath();
+    ctx.arc(W * 0.7, H * 0.15, 20, 0, Math.PI * 2);
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fill();
+    // Stars
+    for (let i = 0; i < 15; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * W, Math.random() * H * 0.5, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+    }
+  }
+
+  // Person (stick figure)
+  const px = W * 0.5;
+  const groundY = H * 0.6;
+  const personH = 50;
+
+  // Shadow (on ground)
+  if (sunAngle > 0) {
+    const shadowDir = sunX > px ? -1 : 1;
+    const shadowPx = Math.min(shadowLen * personH, 250);
+    ctx.beginPath();
+    ctx.ellipse(px + shadowDir * shadowPx / 2, groundY + 4, shadowPx / 2 + 10, 6, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fill();
+
+    // Shadow length label
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#283593';
+    ctx.textAlign = 'center';
+    const labelPos = px + shadowDir * shadowPx / 2;
+    ctx.fillText(`影: ${shadowLen < 10 ? shadowLen.toFixed(1) : '∞'}倍`, labelPos, groundY + 22);
+
+    // Arrow for shadow
+    ctx.beginPath();
+    ctx.moveTo(px + shadowDir * 10, groundY + 8);
+    ctx.lineTo(px + shadowDir * shadowPx, groundY + 8);
+    ctx.strokeStyle = '#283593';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw person
+  ctx.fillStyle = '#333';
+  // Head
+  ctx.beginPath();
+  ctx.arc(px, groundY - personH, 8, 0, Math.PI * 2);
+  ctx.fill();
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(px, groundY - personH + 8);
+  ctx.lineTo(px, groundY - 15);
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.stroke();
+  // Arms
+  ctx.beginPath();
+  ctx.moveTo(px - 15, groundY - 35);
+  ctx.lineTo(px + 15, groundY - 35);
+  ctx.stroke();
+  // Legs
+  ctx.beginPath();
+  ctx.moveTo(px, groundY - 15);
+  ctx.lineTo(px - 12, groundY);
+  ctx.moveTo(px, groundY - 15);
+  ctx.lineTo(px + 12, groundY);
+  ctx.stroke();
+
+  // Tree
+  const tx = W * 0.2;
+  ctx.fillStyle = '#5D4037';
+  ctx.fillRect(tx - 5, groundY - 70, 10, 70);
+  ctx.beginPath();
+  ctx.arc(tx, groundY - 80, 30, 0, Math.PI * 2);
+  ctx.fillStyle = '#388E3C';
+  ctx.fill();
+
+  // Tree shadow
+  if (sunAngle > 0) {
+    const tShadowDir = sunX > tx ? -1 : 1;
+    const tShadowPx = Math.min(getShadowLength(sunAngle) * 70, 300);
+    ctx.beginPath();
+    ctx.ellipse(tx + tShadowDir * tShadowPx / 2, groundY + 3, tShadowPx / 2 + 15, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fill();
+
+    // Shade area label
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#1b5e20';
+    ctx.textAlign = 'center';
+    ctx.fillText('日かげ', tx + tShadowDir * tShadowPx / 3, groundY - 5);
+  }
+
+  // Sunlight area label
+  if (sunAngle > 10) {
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#e65100';
+    ctx.textAlign = 'center';
+    ctx.fillText('日なた', W * 0.75, groundY - 5);
+  }
+
+  // Sun angle arc
+  if (sunAngle > 3) {
+    ctx.beginPath();
+    const arcR = 60;
+    const sunRad = Math.atan2(sunY - groundY, sunX - px);
+    ctx.arc(px, groundY, arcR, -Math.PI, sunRad, sunAngle > 0);
+    ctx.strokeStyle = '#e65100';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Angle label
+    const labelAngle = (sunRad + (-Math.PI)) / 2;
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = '#e65100';
+    ctx.fillText(sunAngle.toFixed(0) + '°', px + Math.cos(labelAngle) * (arcR + 18), groundY + Math.sin(labelAngle) * (arcR + 18));
+  }
+
+  // Thermometer on right side
+  drawThermometer(ctx, W - 50, groundY - 100, temp, 30, '#c62828', '気温');
+  drawThermometer(ctx, W - 100, groundY - 100, groundTemp, 45, '#2e7d32', '地面');
+
+  // Update data panels
+  document.getElementById('dataSunAlt').textContent = sunAngle.toFixed(1);
+  document.getElementById('dataShadow').textContent = sunAngle > 0 ? (shadowLen < 10 ? shadowLen.toFixed(1) : '∞') : '—';
+  document.getElementById('dataTemp').textContent = temp.toFixed(1);
+  document.getElementById('dataGround').textContent = groundTemp.toFixed(1);
+
+  // Update explanation
+  updateExplanation(sunAngle, temp, groundTemp, shadowLen);
+}
+
+function drawThermometer(ctx, x, y, temp, maxTemp, color, label) {
+  const h = 80;
+  const fill = Math.min(1, Math.max(0, temp / maxTemp));
+  // Tube
+  ctx.fillStyle = '#eee';
+  ctx.fillRect(x - 5, y, 10, h);
+  ctx.beginPath(); ctx.arc(x, y + h, 8, 0, Math.PI * 2); ctx.fill();
+  // Fill
+  const fillH = fill * h;
+  ctx.fillStyle = color;
+  ctx.fillRect(x - 4, y + h - fillH, 8, fillH);
+  ctx.beginPath(); ctx.arc(x, y + h, 7, 0, Math.PI * 2); ctx.fill();
+  // Label
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.fillText(temp.toFixed(0) + '℃', x, y - 6);
+  ctx.fillText(label, x, y + h + 22);
+}
+
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1), 16);
+  const bh = parseInt(b.slice(1), 16);
+  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab2 = ah & 0xff;
+  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+  const rr = Math.round(ar + (br - ar) * t);
+  const rg = Math.round(ag + (bg - ag) * t);
+  const rb = Math.round(ab2 + (bb - ab2) * t);
+  return `rgb(${rr},${rg},${rb})`;
+}
+
+function updateExplanation(angle, temp, ground, shadow) {
+  const el = document.getElementById('simExplanation');
+  let html = '';
+  if (angle <= 0) {
+    html = '🌙 太陽がしずんでいます。夜なので暗く、気温も下がっています。';
+  } else if (angle < 20) {
+    html = `🌅 太陽が低い位置（<b>${angle.toFixed(0)}°</b>）にあります。影はとても<b>長く</b>（身長の<b>${shadow.toFixed(1)}倍</b>）、気温もまだ<b>低い</b>（${temp.toFixed(1)}℃）です。朝や夕方の特ちょうですね。`;
+  } else if (angle < 50) {
+    html = `☀️ 太陽が中くらいの高さ（<b>${angle.toFixed(0)}°</b>）にあります。影の長さは身長の<b>${shadow.toFixed(1)}倍</b>。気温は<b>${temp.toFixed(1)}℃</b>で、だんだんあたたかくなっています。`;
+  } else {
+    html = `☀️ 太陽が一番高い位置（<b>${angle.toFixed(0)}°</b>）に近いです！影は<b>とても短く</b>（身長の<b>${shadow.toFixed(1)}倍</b>）。<br>💡 <b>ポイント：</b>気温が一番高くなるのは太陽が一番高い12時ではなく、少し遅れて<b>14時ごろ</b>です。地面があたたまって、その熱で空気があたたまるのに時間がかかるからです！`;
+  }
+  el.innerHTML = html;
+}
+
+// Time control
+function onTimeChange() {
+  currentTime = parseFloat(document.getElementById('timeSlider').value);
+  updateTimeDisplay();
+  drawSim();
+  drawChart();
+}
+
+function setTime(t) {
+  currentTime = t;
+  document.getElementById('timeSlider').value = t;
+  updateTimeDisplay();
+  drawSim();
+  drawChart();
+}
+
+function updateTimeDisplay() {
+  const h = Math.floor(currentTime);
+  const m = Math.round((currentTime - h) * 60);
+  document.getElementById('timeDisplay').textContent =
+    String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function togglePlay() {
+  playing = !playing;
+  document.getElementById('playBtn').classList.toggle('active', playing);
+  document.getElementById('playBtn').textContent = playing ? '⏸ 停止' : '▶ 自動再生';
+  if (playing) animate();
+}
+
+function animate() {
+  if (!playing) return;
+  currentTime += 0.03;
+  if (currentTime > 19) currentTime = 5;
+  document.getElementById('timeSlider').value = currentTime;
+  updateTimeDisplay();
+  drawSim();
+  drawChart();
+  animFrame = requestAnimationFrame(animate);
+}
+
+// ===== CHART =====
+function drawChart() {
+  const canvas = document.getElementById('chartCanvas');
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.offsetWidth * 2;
+  canvas.height = 400;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+  const W = wrap.offsetWidth, H = 200;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 40, padR = 20, padT = 20, padB = 30;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Grid
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + (i / 5) * chartH;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+  }
+
+  // X axis labels (hours)
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = '#999';
+  ctx.textAlign = 'center';
+  for (let h = 5; h <= 19; h += 1) {
+    const x = padL + ((h - 5) / 14) * chartW;
+    if (h % 2 === 0 || h === 5 || h === 19) {
+      ctx.fillText(h + '時', x, H - 6);
+    }
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + chartH);
+    ctx.strokeStyle = '#f0f0f0'; ctx.stroke();
+  }
+
+  // Draw lines
+  function drawLine(getVal, maxVal, color) {
+    ctx.beginPath();
+    for (let t = 5; t <= 19; t += 0.2) {
+      const x = padL + ((t - 5) / 14) * chartW;
+      const v = getVal(t);
+      const y = padT + chartH - (v / maxVal) * chartH;
+      if (t === 5) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  drawLine(getSunAngle, 80, '#e65100');
+  drawLine(getTemp, 35, '#c62828');
+  drawLine(t => Math.min(getShadowLength(getSunAngle(t)), 8), 8, '#283593');
+  drawLine(getGroundTemp, 50, '#2e7d32');
+
+  // Current time marker
+  const cx = padL + ((currentTime - 5) / 14) * chartW;
+  ctx.beginPath();
+  ctx.moveTo(cx, padT);
+  ctx.lineTo(cx, padT + chartH);
+  ctx.strokeStyle = 'rgba(255,0,0,0.4)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Y axis labels
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#e65100';
+  ctx.fillText('75°', padL - 4, padT + 6);
+  ctx.fillText('0°', padL - 4, padT + chartH + 4);
+}
+
+// Init
+window.addEventListener('resize', () => {
+  if (document.getElementById('content2').classList.contains('active')) {
+    initSim();
+    drawChart();
+  }
+});
+
+updateTimeDisplay();
+</script>
+</body>
+</html>
