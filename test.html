@@ -305,6 +305,33 @@
   }
   .quiz-btn:hover { transform: scale(1.05); }
 
+  /* === Mode Toggle === */
+  .mode-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #4facfe;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 10px 14px;
+    border: none;
+    background: white;
+    color: #4facfe;
+    font-weight: 700;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: #4facfe;
+    color: white;
+  }
+  .mode-btn:hover:not(.active) {
+    background: #e8f4fd;
+  }
+
   .slider-container {
     margin: 10px 0;
     text-align: center;
@@ -340,6 +367,13 @@
       <input type="number" id="inputNumber" value="12345" min="1" max="9999999" oninput="update()">
     </div>
     <div class="input-group">
+      <label>指定のしかた</label>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modePlace" onclick="switchMode('place')">○の位まで</button>
+        <button class="mode-btn" id="modeKeta" onclick="switchMode('keta')">上から○桁</button>
+      </div>
+    </div>
+    <div class="input-group" id="placeSelectorWrap">
       <label>どの位までのがい数？</label>
       <select id="placeSelect" onchange="update()">
         <option value="10">十の位</option>
@@ -347,6 +381,16 @@
         <option value="1000" selected>千の位</option>
         <option value="10000">一万の位</option>
         <option value="100000">十万の位</option>
+      </select>
+    </div>
+    <div class="input-group" id="ketaSelectorWrap" style="display:none;">
+      <label>上から何桁のがい数？</label>
+      <select id="ketaSelect" onchange="update()">
+        <option value="1">上から 1桁</option>
+        <option value="2" selected>上から 2桁</option>
+        <option value="3">上から 3桁</option>
+        <option value="4">上から 4桁</option>
+        <option value="5">上から 5桁</option>
       </select>
     </div>
   </div>
@@ -443,11 +487,21 @@
 <script>
 // ===== STATE =====
 let currentMethod = 'kirisute';
+let currentMode = 'place'; // 'place' or 'keta'
 const placeNames = {
   1: '一の位', 10: '十の位', 100: '百の位',
   1000: '千の位', 10000: '一万の位', 100000: '十万の位',
   1000000: '百万の位'
 };
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('modePlace').classList.toggle('active', mode === 'place');
+  document.getElementById('modeKeta').classList.toggle('active', mode === 'keta');
+  document.getElementById('placeSelectorWrap').style.display = mode === 'place' ? '' : 'none';
+  document.getElementById('ketaSelectorWrap').style.display = mode === 'keta' ? '' : 'none';
+  update();
+}
 
 function selectMethod(m) {
   currentMethod = m;
@@ -462,9 +516,21 @@ function onSlider() {
   update();
 }
 
+function getPlace(num) {
+  if (currentMode === 'place') {
+    return parseInt(document.getElementById('placeSelect').value);
+  } else {
+    // 上からN桁 → place = 10^(桁数 - N)
+    const keta = parseInt(document.getElementById('ketaSelect').value);
+    const numDigits = String(num).length;
+    const exp = numDigits - keta;
+    return exp > 0 ? Math.pow(10, exp) : 1;
+  }
+}
+
 function update() {
   const num = parseInt(document.getElementById('inputNumber').value) || 0;
-  const place = parseInt(document.getElementById('placeSelect').value);
+  const place = getPlace(num);
 
   document.getElementById('sliderDisplay').textContent = num.toLocaleString();
   document.getElementById('numberSlider').value = num;
@@ -542,17 +608,23 @@ function update() {
   const lookDigit = Math.floor((num % place) / lookPlace);
   const lookPlaceName = placeNames[lookPlace] || '';
 
+  // Description of how we're rounding
+  const ketaVal = parseInt(document.getElementById('ketaSelect').value);
+  const modeDesc = currentMode === 'keta'
+    ? `<b>上から${ketaVal}桁</b>のがい数（＝<b>${placeNames[place] || place + 'の位'}</b>まで）`
+    : `<b>${placeNames[place]}</b> までのがい数`;
+
   let html = '';
   if (currentMethod === 'kirisute') {
     html = `
-      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を <b>${placeNames[place]}</b> までのがい数にします</div>
-      <div class="step"><span class="step-num">2</span> <b>切り捨て</b>は、${placeNames[place]}より下の位をすべて <b>0</b> にします</div>
+      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を ${modeDesc}にします</div>
+      <div class="step"><span class="step-num">2</span> <b>切り捨て</b>は、${placeNames[place] || ''}より下の位をすべて <b>0</b> にします</div>
       <div class="step"><span class="step-num">3</span> ${lookPlaceName}の数字 <b>${lookDigit}</b> をそのまま捨てて → <b>${resStrF}</b></div>
     `;
   } else if (currentMethod === 'kiriage') {
     html = `
-      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を <b>${placeNames[place]}</b> までのがい数にします</div>
-      <div class="step"><span class="step-num">2</span> <b>切り上げ</b>は、${placeNames[place]}より下を0にして、${placeNames[place]}を <b>1つ大きく</b> します</div>
+      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を ${modeDesc}にします</div>
+      <div class="step"><span class="step-num">2</span> <b>切り上げ</b>は、${placeNames[place] || ''}より下を0にして、その位を <b>1つ大きく</b> します</div>
       <div class="step"><span class="step-num">3</span> ${lowerPart > 0
         ? `下の位に ${lowerPart} があるので切り上げて → <b>${resStrF}</b>`
         : `下の位がすべて0なので、そのまま → <b>${resStrF}</b>`}</div>
@@ -561,7 +633,7 @@ function update() {
     const action = lookDigit >= 5 ? '切り上げ' : '切り捨て';
     const reason = lookDigit >= 5 ? '5以上なので切り上げ' : '4以下なので切り捨て';
     html = `
-      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を <b>${placeNames[place]}</b> までのがい数にします</div>
+      <div class="step"><span class="step-num">1</span> <b>${numStr}</b> を ${modeDesc}にします</div>
       <div class="step"><span class="step-num">2</span> <b>四捨五入</b>では、1つ下の <b>${lookPlaceName}</b> の数字を見ます → <b style="color:#e65100;font-size:1.2em;">${lookDigit}</b></div>
       <div class="step"><span class="step-num">3</span> ${lookDigit} は <b>${reason}</b>します → <b>${resStrF}</b></div>
     `;
