@@ -305,6 +305,30 @@
   }
   .quiz-btn:hover { transform: scale(1.05); }
 
+  /* === Range Method Buttons === */
+  .range-methods {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .range-method-btn {
+    padding: 10px 18px;
+    border-radius: 24px;
+    border: 2px solid #ddd;
+    background: white;
+    font-weight: 700;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .range-method-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .range-method-btn.active[data-method="shisha"] { background: #e1bee7; border-color: #7b1fa2; color: #7b1fa2; }
+  .range-method-btn.active[data-method="kirisute"] { background: #bbdefb; border-color: #1976d2; color: #1976d2; }
+  .range-method-btn.active[data-method="kiriage"] { background: #f8bbd0; border-color: #c62828; color: #c62828; }
+  .range-method-btn.active[data-method="all"] { background: #fff9c4; border-color: #f9a825; color: #e65100; }
+
   /* === Mode Toggle === */
   .mode-toggle {
     display: flex;
@@ -440,7 +464,7 @@
   </div>
 
   <p style="margin-bottom:12px;line-height:1.6;">
-    <b>問題：</b>四捨五入して<span id="rangePlace">一万</span>の位までのおよその数にしたら
+    <b>問題：</b><span id="rangeMethodLabel">四捨五入</span>して<span id="rangePlace">一万</span>の位までのおよその数にしたら
     <b><span id="rangeTarget">350000</span></b> になったよ。もとの数はどんな範囲？
   </p>
 
@@ -450,7 +474,7 @@
       <input type="number" id="rangeInput" value="350000" min="10" max="9999999" oninput="updateRange()">
     </div>
     <div class="input-group">
-      <label>四捨五入した位</label>
+      <label>がい数にした位</label>
       <select id="rangePlaceSelect" onchange="updateRange()">
         <option value="10">十の位</option>
         <option value="100">百の位</option>
@@ -461,8 +485,16 @@
     </div>
   </div>
 
+  <!-- Method selector for ポイント② -->
+  <div class="range-methods">
+    <button class="range-method-btn active" data-method="shisha" onclick="selectRangeMethod('shisha')">③ 四捨五入</button>
+    <button class="range-method-btn" data-method="kirisute" onclick="selectRangeMethod('kirisute')">① 切り捨て</button>
+    <button class="range-method-btn" data-method="kiriage" onclick="selectRangeMethod('kiriage')">② 切り上げ</button>
+    <button class="range-method-btn" data-method="all" onclick="selectRangeMethod('all')">🔍 3つを比較</button>
+  </div>
+
   <div class="numberline-container">
-    <canvas id="numberline" height="140"></canvas>
+    <canvas id="numberline" height="200"></canvas>
   </div>
 
   <div class="range-answer" id="rangeAnswer"></div>
@@ -642,131 +674,287 @@ function update() {
 }
 
 // ===== ポイント② : 数直線 =====
+let rangeMethod = 'shisha';
+
+function selectRangeMethod(m) {
+  rangeMethod = m;
+  document.querySelectorAll('.range-method-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.range-method-btn[data-method="${m}"]`).classList.add('active');
+  updateRange();
+}
+
+// Compute range for a given method
+function computeRange(target, place, method) {
+  if (method === 'shisha') {
+    // 四捨五入: target ± half
+    const half = place / 2;
+    return { lower: target - half, upper: target + half, lowerInc: true, upperInc: false };
+  } else if (method === 'kirisute') {
+    // 切り捨て: target ~ target + place - 1 → [target, target+place)
+    return { lower: target, upper: target + place, lowerInc: true, upperInc: false };
+  } else {
+    // 切り上げ: target - place + 1 ~ target → (target-place, target]
+    return { lower: target - place, upper: target, lowerInc: false, upperInc: true };
+  }
+}
+
+function methodLabel(m) {
+  return m === 'shisha' ? '四捨五入' : m === 'kirisute' ? '切り捨て' : '切り上げ';
+}
+function methodColor(m) {
+  return m === 'shisha' ? '#7b1fa2' : m === 'kirisute' ? '#1976d2' : '#c62828';
+}
+
 function updateRange() {
   const target = parseInt(document.getElementById('rangeInput').value) || 0;
   const place = parseInt(document.getElementById('rangePlaceSelect').value);
-  const half = place / 2;
-  const lower = target - half;
-  const upper = target + half;
-
   const placeName = placeNames[place] || '';
+
   document.getElementById('rangePlace').textContent = placeName.replace('の位', '');
   document.getElementById('rangeTarget').textContent = target.toLocaleString();
+  document.getElementById('rangeMethodLabel').textContent = rangeMethod === 'all' ? '各方法で' : methodLabel(rangeMethod);
 
-  // Draw number line
   const canvas = document.getElementById('numberline');
   canvas.width = canvas.offsetWidth * 2;
-  canvas.height = 280;
+  const isAll = rangeMethod === 'all';
+  const totalH = isAll ? 260 : 150;
+  canvas.height = totalH * 2;
   const ctx = canvas.getContext('2d');
-  ctx.scale(2, 2); // retina
-  const W = canvas.offsetWidth, H = 140;
+  ctx.scale(2, 2);
+  const W = canvas.offsetWidth, H = totalH;
 
   ctx.clearRect(0, 0, W, H);
 
-  const padL = 60, padR = 60;
-  const lineY = 70;
+  const padL = 70, padR = 40;
   const lineW = W - padL - padR;
 
-  // Main line
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(padL, lineY);
-  ctx.lineTo(padL + lineW, lineY);
-  ctx.stroke();
+  if (isAll) {
+    // === COMPARISON MODE: 3 number lines ===
+    const methods = ['kirisute', 'kiriage', 'shisha'];
+    const labels = ['① 切り捨て', '② 切り上げ', '③ 四捨五入'];
+    const colors = ['#1976d2', '#c62828', '#7b1fa2'];
+    const bgColors = ['rgba(25,118,210,0.1)', 'rgba(198,40,40,0.1)', 'rgba(123,31,162,0.1)'];
 
-  // Arrow
-  ctx.beginPath();
-  ctx.moveTo(padL + lineW, lineY);
-  ctx.lineTo(padL + lineW - 10, lineY - 6);
-  ctx.moveTo(padL + lineW, lineY);
-  ctx.lineTo(padL + lineW - 10, lineY + 6);
-  ctx.stroke();
+    // Find global min/max for consistent scale
+    let globalMin = Infinity, globalMax = -Infinity;
+    methods.forEach(m => {
+      const r = computeRange(target, place, m);
+      globalMin = Math.min(globalMin, r.lower);
+      globalMax = Math.max(globalMax, r.upper);
+    });
+    const span = globalMax - globalMin || 1;
 
-  // Three marks: lower, target, upper
-  const marks = [
-    { val: lower, x: padL + lineW * 0.15, color: '#1976d2', label: lower.toLocaleString() },
-    { val: target, x: padL + lineW * 0.5, color: '#e65100', label: target.toLocaleString() },
-    { val: upper, x: padL + lineW * 0.85, color: '#c62828', label: upper.toLocaleString() },
-  ];
+    function valToX(v) {
+      return padL + ((v - globalMin) / span) * lineW;
+    }
 
-  marks.forEach(m => {
+    methods.forEach((m, idx) => {
+      const lineY = 40 + idx * 75;
+      const r = computeRange(target, place, m);
+
+      // Label
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = colors[idx];
+      ctx.textAlign = 'right';
+      ctx.fillText(labels[idx], padL - 8, lineY + 4);
+
+      // Main line
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(padL, lineY);
+      ctx.lineTo(padL + lineW, lineY);
+      ctx.stroke();
+
+      // Range fill
+      const x1 = valToX(r.lower);
+      const x2 = valToX(r.upper);
+      ctx.fillStyle = bgColors[idx];
+      ctx.fillRect(x1, lineY - 14, x2 - x1, 28);
+
+      // Range bar
+      ctx.strokeStyle = colors[idx];
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x1, lineY);
+      ctx.lineTo(x2, lineY);
+      ctx.stroke();
+
+      // Endpoints
+      // Left
+      ctx.beginPath();
+      ctx.arc(x1, lineY, 6, 0, Math.PI * 2);
+      if (r.lowerInc) { ctx.fillStyle = colors[idx]; ctx.fill(); }
+      else { ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = colors[idx]; ctx.lineWidth = 2.5; ctx.stroke(); }
+
+      // Right
+      ctx.beginPath();
+      ctx.arc(x2, lineY, 6, 0, Math.PI * 2);
+      if (r.upperInc) { ctx.fillStyle = colors[idx]; ctx.fill(); }
+      else { ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = colors[idx]; ctx.lineWidth = 2.5; ctx.stroke(); }
+
+      // Value labels
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = colors[idx];
+      ctx.textAlign = 'center';
+      ctx.fillText(r.lower.toLocaleString() + (r.lowerInc ? ' 以上' : ' より大きい'), x1, lineY + 24);
+      ctx.fillText(r.upper.toLocaleString() + (r.upperInc ? ' 以下' : ' 未満'), x2, lineY - 20);
+
+      // Target marker
+      const tx = valToX(target);
+      ctx.beginPath();
+      ctx.moveTo(tx, lineY - 12);
+      ctx.lineTo(tx, lineY + 12);
+      ctx.strokeStyle = '#e65100';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    // Target label at bottom
+    const tx = valToX(target);
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#e65100';
+    ctx.textAlign = 'center';
+    ctx.fillText('がい数の結果: ' + target.toLocaleString(), tx, H - 10);
+
+    // Answer
+    const ans = document.getElementById('rangeAnswer');
+    const rK = computeRange(target, place, 'kirisute');
+    const rA = computeRange(target, place, 'kiriage');
+    const rS = computeRange(target, place, 'shisha');
+    ans.innerHTML = `
+      <b style="color:#1976d2">切り捨て:</b> ${rK.lower.toLocaleString()} 以上 〜 ${rK.upper.toLocaleString()} 未満<br>
+      <b style="color:#c62828">切り上げ:</b> ${rA.lower.toLocaleString()} より大きい 〜 ${rA.upper.toLocaleString()} 以下<br>
+      <b style="color:#7b1fa2">四捨五入:</b> ${rS.lower.toLocaleString()} 以上 〜 ${rS.upper.toLocaleString()} 未満
+    `;
+
+    // Explanation
+    const exp2 = document.getElementById('explanation2');
+    exp2.innerHTML = `
+      <div class="step"><span class="step-num">比</span> 3つの方法で範囲がどう違うか比べてみよう！</div>
+      <div class="step"><span class="step-num">1</span> <b style="color:#1976d2">切り捨て</b>は、もとの数が <b>${rK.lower.toLocaleString()}</b> 〜 <b>${(rK.upper - 1).toLocaleString()}</b> のどれでも結果は ${target.toLocaleString()} になる（幅: <b>${place.toLocaleString()}</b>）</div>
+      <div class="step"><span class="step-num">2</span> <b style="color:#c62828">切り上げ</b>は、もとの数が <b>${(rA.lower + 1).toLocaleString()}</b> 〜 <b>${rA.upper.toLocaleString()}</b> のどれでも結果は ${target.toLocaleString()} になる（幅: <b>${place.toLocaleString()}</b>）</div>
+      <div class="step"><span class="step-num">3</span> <b style="color:#7b1fa2">四捨五入</b>は、もとの数が <b>${rS.lower.toLocaleString()}</b> 〜 <b>${(rS.upper - 1).toLocaleString()}</b> のどれでも結果は ${target.toLocaleString()} になる（幅: <b>${place.toLocaleString()}</b>）</div>
+      <div class="step"><span class="step-num">💡</span> どの方法でも範囲の幅は同じ <b>${place.toLocaleString()}</b> だけど、<b>どの位置にあるか</b>が違うんだね！</div>
+    `;
+
+  } else {
+    // === SINGLE METHOD MODE ===
+    const lineY = 60;
+    const r = computeRange(target, place, rangeMethod);
+    const color = methodColor(rangeMethod);
+
+    // Global range for display
+    const displayMin = r.lower - place * 0.2;
+    const displayMax = r.upper + place * 0.2;
+    const span = displayMax - displayMin || 1;
+    function valToX(v) { return padL + ((v - displayMin) / span) * lineW; }
+
+    // Main line
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(m.x, lineY - 14);
-    ctx.lineTo(m.x, lineY + 14);
-    ctx.strokeStyle = m.color;
-    ctx.lineWidth = 2.5;
+    ctx.moveTo(padL, lineY);
+    ctx.lineTo(padL + lineW, lineY);
     ctx.stroke();
 
+    // Arrow
+    ctx.beginPath();
+    ctx.moveTo(padL + lineW, lineY);
+    ctx.lineTo(padL + lineW - 10, lineY - 6);
+    ctx.moveTo(padL + lineW, lineY);
+    ctx.lineTo(padL + lineW - 10, lineY + 6);
+    ctx.stroke();
+
+    const x1 = valToX(r.lower);
+    const x2 = valToX(r.upper);
+    const xT = valToX(target);
+
+    // Range fill
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(x1, lineY - 14, x2 - x1, 28);
+
+    // Range bar
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(x1, lineY); ctx.lineTo(x2, lineY); ctx.stroke();
+
+    // Tick marks
+    [r.lower, target, r.upper].forEach(v => {
+      const x = valToX(v);
+      ctx.beginPath(); ctx.moveTo(x, lineY - 16); ctx.lineTo(x, lineY + 16);
+      ctx.strokeStyle = v === target ? '#e65100' : color;
+      ctx.lineWidth = 2.5; ctx.stroke();
+    });
+
+    // Endpoints (filled = inclusive, hollow = exclusive)
+    ctx.beginPath(); ctx.arc(x1, lineY, 7, 0, Math.PI * 2);
+    if (r.lowerInc) { ctx.fillStyle = color; ctx.fill(); }
+    else { ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke(); }
+
+    ctx.beginPath(); ctx.arc(x2, lineY, 7, 0, Math.PI * 2);
+    if (r.upperInc) { ctx.fillStyle = color; ctx.fill(); }
+    else { ctx.fillStyle = 'white'; ctx.fill(); ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke(); }
+
+    // Labels
     ctx.font = 'bold 12px sans-serif';
-    ctx.fillStyle = m.color;
     ctx.textAlign = 'center';
-    ctx.fillText(m.label, m.x, lineY + 32);
-  });
+    ctx.fillStyle = color;
+    ctx.fillText(r.lower.toLocaleString(), x1, lineY + 34);
+    ctx.fillText(r.upper.toLocaleString(), x2, lineY + 34);
+    ctx.fillStyle = '#e65100';
+    ctx.fillText(target.toLocaleString(), xT, lineY + 34);
 
-  // Highlight range (lower to upper)
-  const rangeStartX = marks[0].x;
-  const rangeEndX = marks[2].x;
+    // Bracket labels
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = color;
+    ctx.fillText(r.lowerInc ? '以上 ●' : 'より大きい ○', x1, lineY - 24);
+    ctx.fillText(r.upperInc ? '以下 ●' : '未満 ○', x2, lineY - 24);
 
-  // Filled range
-  ctx.fillStyle = 'rgba(76, 175, 80, 0.2)';
-  ctx.fillRect(rangeStartX, lineY - 10, rangeEndX - rangeStartX, 20);
+    // Center description
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#e65100';
+    ctx.fillText(methodLabel(rangeMethod) + 'すると → ' + target.toLocaleString(), (x1 + x2) / 2, lineY + 56);
 
-  // Range brackets
-  ctx.strokeStyle = '#43a047';
-  ctx.lineWidth = 3;
-  // Left bracket (closed: >=)
-  ctx.beginPath();
-  ctx.moveTo(rangeStartX + 8, lineY - 22);
-  ctx.lineTo(rangeStartX, lineY - 22);
-  ctx.lineTo(rangeStartX, lineY + 42);
-  ctx.lineTo(rangeStartX + 8, lineY + 42);
-  ctx.stroke();
-  // Right bracket (open: <)
-  ctx.beginPath();
-  ctx.setLineDash([4, 3]);
-  ctx.moveTo(rangeEndX - 8, lineY - 22);
-  ctx.lineTo(rangeEndX, lineY - 22);
-  ctx.lineTo(rangeEndX, lineY + 42);
-  ctx.lineTo(rangeEndX - 8, lineY + 42);
-  ctx.stroke();
-  ctx.setLineDash([]);
+    // Legend: ● = 含む, ○ = 含まない
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#888';
+    ctx.textAlign = 'left';
+    ctx.fillText('● = その数を含む   ○ = その数を含まない', padL, H - 8);
 
-  // Labels
-  ctx.font = 'bold 11px sans-serif';
-  ctx.fillStyle = '#43a047';
-  ctx.textAlign = 'center';
-  ctx.fillText('以上 ≧', rangeStartX, lineY - 28);
-  ctx.fillStyle = '#c62828';
-  ctx.fillText('未満 <', rangeEndX, lineY - 28);
+    // Answer
+    const ans = document.getElementById('rangeAnswer');
+    const lowerLabel = r.lowerInc ? `${r.lower.toLocaleString()} 以上` : `${r.lower.toLocaleString()} より大きい`;
+    const upperLabel = r.upperInc ? `${r.upper.toLocaleString()} 以下` : `${r.upper.toLocaleString()} 未満`;
+    ans.innerHTML = `もとの数の範囲: <b>${lowerLabel}</b> 〜 <b>${upperLabel}</b>`;
 
-  // Center label
-  ctx.font = 'bold 13px sans-serif';
-  ctx.fillStyle = '#e65100';
-  ctx.fillText('四捨五入すると →  ' + target.toLocaleString(), (rangeStartX + rangeEndX) / 2, lineY + 56);
-
-  // Draggable dot
-  const dotX = padL + lineW * 0.35;
-  ctx.beginPath();
-  ctx.arc(dotX, lineY, 8, 0, Math.PI * 2);
-  ctx.fillStyle = '#ff5722';
-  ctx.fill();
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Answer
-  const ans = document.getElementById('rangeAnswer');
-  ans.innerHTML = `もとの数の範囲: <b>${lower.toLocaleString()} 以上</b>、<b>${upper.toLocaleString()} 未満</b>`;
-
-  // Explanation
-  const exp2 = document.getElementById('explanation2');
-  exp2.innerHTML = `
-    <div class="step"><span class="step-num">1</span> 四捨五入して <b>${target.toLocaleString()}</b> になるということは、1つ下の位の数字が <b>0〜9</b> のどれかだったはず</div>
-    <div class="step"><span class="step-num">2</span> 切り捨てられる最小は <b>${lower.toLocaleString()}</b>（${placeName}の1つ下が0〜4）→ これ<b>以上</b></div>
-    <div class="step"><span class="step-num">3</span> 切り上げられる最大は <b>${(upper - 1).toLocaleString()}</b>（${placeName}の1つ下が5〜9）→ <b>${upper.toLocaleString()} 未満</b></div>
-    <div class="step"><span class="step-num">✓</span> 答え: <b>${lower.toLocaleString()} 以上 ${upper.toLocaleString()} 未満</b></div>
-  `;
+    // Explanation
+    const exp2 = document.getElementById('explanation2');
+    if (rangeMethod === 'shisha') {
+      exp2.innerHTML = `
+        <div class="step"><span class="step-num">1</span> <b>四捨五入</b>して <b>${target.toLocaleString()}</b> になるということは、1つ下の位が <b>0〜4</b>（切り捨て）か <b>5〜9</b>（切り上げ）だった</div>
+        <div class="step"><span class="step-num">2</span> 最小: ${placeName}の1つ下が0 → <b>${r.lower.toLocaleString()}</b>（<b>以上</b>）</div>
+        <div class="step"><span class="step-num">3</span> 最大: ${placeName}の1つ下が9 → <b>${(r.upper - 1).toLocaleString()}</b>（<b>${r.upper.toLocaleString()} 未満</b>）</div>
+        <div class="step"><span class="step-num">✓</span> 答え: <b>${r.lower.toLocaleString()} 以上 ${r.upper.toLocaleString()} 未満</b></div>
+      `;
+    } else if (rangeMethod === 'kirisute') {
+      exp2.innerHTML = `
+        <div class="step"><span class="step-num">1</span> <b>切り捨て</b>して <b>${target.toLocaleString()}</b> になるということは、下の位をそのまま0にした</div>
+        <div class="step"><span class="step-num">2</span> 最小: 下の位がすべて0のとき → <b>${r.lower.toLocaleString()}</b>（ぴったり。<b>以上</b>）</div>
+        <div class="step"><span class="step-num">3</span> 最大: 下の位がすべて9のとき → <b>${(r.upper - 1).toLocaleString()}</b>（<b>${r.upper.toLocaleString()} 未満</b>）</div>
+        <div class="step"><span class="step-num">✓</span> 答え: <b>${r.lower.toLocaleString()} 以上 ${r.upper.toLocaleString()} 未満</b></div>
+      `;
+    } else {
+      exp2.innerHTML = `
+        <div class="step"><span class="step-num">1</span> <b>切り上げ</b>して <b>${target.toLocaleString()}</b> になるということは、下の位があったから1つ上げた</div>
+        <div class="step"><span class="step-num">2</span> もとが <b>${r.lower.toLocaleString()}</b> ぴったりだと切り上げ不要で ${r.lower.toLocaleString()} のまま → <b>含まない</b>（○）</div>
+        <div class="step"><span class="step-num">3</span> もとが <b>${r.upper.toLocaleString()}</b> ぴったりだと下の位が0なので切り上げ不要で ${r.upper.toLocaleString()} → <b>含む</b>（●）</div>
+        <div class="step"><span class="step-num">✓</span> 答え: <b>${r.lower.toLocaleString()} より大きい ${r.upper.toLocaleString()} 以下</b></div>
+      `;
+    }
+  }
 }
 
 // ===== クイズ =====
