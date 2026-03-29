@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三角定規 & 折り返し角度 インタラクティブ解説</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Hiragino Sans','Meiryo',sans-serif;background:linear-gradient(135deg,#6c5ce7,#a29bfe);min-height:100vh;padding:16px;color:#333}
+h1{text-align:center;color:#fff;font-size:1.7em;text-shadow:0 2px 8px rgba(0,0,0,.25);margin-bottom:4px}
+.sub{text-align:center;color:rgba(255,255,255,.9);margin-bottom:16px;font-size:.95em}
+.tabs{display:flex;gap:0;max-width:960px;margin:0 auto}
+.tab{flex:1;padding:13px 8px;text-align:center;font-weight:700;font-size:.95em;cursor:pointer;border-radius:14px 14px 0 0;transition:.3s;background:rgba(255,255,255,.45);color:#555}
+.tab.on{background:#fff;color:#6c5ce7}
+.card{background:#fff;border-radius:0 0 20px 20px;box-shadow:0 10px 40px rgba(0,0,0,.15);padding:24px;max-width:960px;margin:0 auto 20px}
+.card-title{font-size:1.2em;font-weight:700;color:#6c5ce7;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.badge{background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;padding:3px 12px;border-radius:16px;font-size:.7em}
+.tc{display:none}.tc.on{display:block}
+
+/* Canvas */
+canvas{display:block;border-radius:12px;background:#fafbff;border:2px solid #eee;margin:0 auto}
+
+/* Buttons */
+.btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:14px 0}
+.btn{padding:10px 18px;border-radius:22px;border:2px solid #ddd;background:#fff;font-weight:700;font-size:.9em;cursor:pointer;transition:.2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.btn.on{border-color:#6c5ce7;background:#ede7f6;color:#6c5ce7}
+
+/* Info cards */
+.info-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}
+.info-card{border-radius:12px;padding:12px;text-align:center;border:2px solid #eee}
+.info-card .lbl{font-size:.75em;color:#888;margin-bottom:2px}
+.info-card .val{font-size:1.5em;font-weight:800}
+.info-card .unt{font-size:.7em;color:#aaa}
+
+/* Explanation */
+.exp{margin-top:14px;background:#fffde7;border-left:5px solid #fdd835;border-radius:0 12px 12px 0;padding:14px 18px;font-size:.95em;line-height:1.8;color:#5d4037}
+.exp b{color:#6c5ce7}
+.step{margin-bottom:6px}
+.sn{display:inline-block;background:#6c5ce7;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:.75em;font-weight:700;margin-right:5px}
+
+/* Slider */
+.slider-row{text-align:center;margin:10px 0}
+.slider-row input[type=range]{width:80%;accent-color:#6c5ce7}
+.slider-label{font-weight:700;color:#6c5ce7;font-size:1.3em}
+</style>
+</head>
+<body>
+
+<h1>三角定規 & 折り返し角度</h1>
+<p class="sub">三角定規を動かして角度の組み合わせを体験しよう！</p>
+
+<div class="tabs">
+  <div class="tab on" onclick="switchTab(0)">📐 三角定規の角度</div>
+  <div class="tab" onclick="switchTab(1)">🔀 角度の組み合わせ</div>
+  <div class="tab" onclick="switchTab(2)">📄 紙の折り返し</div>
+</div>
+
+<!-- ====== TAB 0: 三角定規の基本 ====== -->
+<div class="card tc on" id="tc0">
+  <div class="card-title"><span class="badge">問題1</span>三角定規の3つの角度</div>
+  <div class="btns">
+    <button class="btn on" onclick="selRuler(0)">定規① 30-60-90</button>
+    <button class="btn" onclick="selRuler(1)">定規② 45-45-90</button>
+    <button class="btn" onclick="selRuler(2)">両方を重ねて見る</button>
+  </div>
+  <canvas id="c0" width="800" height="460"></canvas>
+  <div class="exp" id="exp0"></div>
+</div>
+
+<!-- ====== TAB 1: 組み合わせ ====== -->
+<div class="card tc" id="tc1">
+  <div class="card-title"><span class="badge">問題2</span>2枚の三角定規で作る角度</div>
+  <div class="btns">
+    <button class="btn on" data-q="0" onclick="selQ(0)">（1）75°</button>
+    <button class="btn" data-q="1" onclick="selQ(1)">（2）105°</button>
+    <button class="btn" data-q="2" onclick="selQ(2)">（3）150°</button>
+    <button class="btn" data-q="3" onclick="selQ(3)">（4）15°</button>
+    <button class="btn" data-q="4" onclick="selQ(4)">自由に回転！</button>
+  </div>
+  <canvas id="c1" width="800" height="520"></canvas>
+  <div class="slider-row" id="freeSlider" style="display:none">
+    <div>定規②の回転角度: <span class="slider-label" id="freeAngleLabel">0°</span></div>
+    <input type="range" min="0" max="360" value="0" id="freeAngle" oninput="onFreeAngle()">
+  </div>
+  <div class="info-row">
+    <div class="info-card" style="background:#ede7f6"><div class="lbl">定規①の角</div><div class="val" id="q_a1">—</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#e3f2fd"><div class="lbl">定規②の角</div><div class="val" id="q_a2">—</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#fff8e1"><div class="lbl">回転角度</div><div class="val" id="q_rot" style="color:#ff9800">—</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#e8f5e9"><div class="lbl">重なった角度</div><div class="val" id="q_overlap" style="color:#e65100">—</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#fff3e0"><div class="lbl">計算式</div><div class="val" id="q_formula" style="font-size:1em">—</div><div class="unt"></div></div>
+    <div class="info-card" style="background:#fce4ec"><div class="lbl">できた角度</div><div class="val" id="q_result" style="color:#c62828">—</div><div class="unt">度</div></div>
+  </div>
+  <div class="exp" id="exp1"></div>
+</div>
+
+<!-- ====== TAB 2: 紙の折り返し ====== -->
+<div class="card tc" id="tc2">
+  <div class="card-title"><span class="badge">発展</span>紙を折り返したときの角度</div>
+  <canvas id="c2" width="800" height="440"></canvas>
+  <div class="slider-row">
+    <div>折り返す角度: <span class="slider-label" id="foldLabel">30°</span></div>
+    <input type="range" min="5" max="85" value="30" id="foldAngle" oninput="drawFold()">
+  </div>
+  <div class="info-row">
+    <div class="info-card" style="background:#ede7f6"><div class="lbl">折り線の角度</div><div class="val" id="fold_a">30</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#e3f2fd"><div class="lbl">折り返した角度</div><div class="val" id="fold_b">60</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#fff3e0"><div class="lbl">残りの角度</div><div class="val" id="fold_c">120</div><div class="unt">度</div></div>
+    <div class="info-card" style="background:#fce4ec"><div class="lbl">法則</div><div class="val" id="fold_rule" style="font-size:.8em;color:#c62828">2倍</div><div class="unt"></div></div>
+  </div>
+  <div class="exp" id="exp2"></div>
+</div>
+
+<script>
+// ====== TABS ======
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===n));
+  document.querySelectorAll('.tc').forEach((c,i)=>c.classList.toggle('on',i===n));
+  if(n===0)drawRuler();if(n===1)drawCombo();if(n===2)drawFold();
+}
+
+// ====== HELPERS ======
+const RAD=Math.PI/180;
+function rot(x,y,cx,cy,a){const c=Math.cos(a*RAD),s=Math.sin(a*RAD),dx=x-cx,dy=y-cy;return[cx+dx*c-dy*s,cy+dx*s+dy*c]}
+function drawTri(ctx,pts,fill,stroke,lw){
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=lw||3;ctx.stroke();
+}
+function drawArc(ctx,cx,cy,r,startDeg,endDeg,color,lw){
+  ctx.beginPath();ctx.arc(cx,cy,r,-endDeg*RAD,-startDeg*RAD);ctx.strokeStyle=color;ctx.lineWidth=lw||2.5;ctx.stroke();
+}
+function drawAngleLabel(ctx,cx,cy,r,midDeg,text,color,fontSize){
+  const mx=cx+Math.cos(-midDeg*RAD)*(r+14);
+  const my=cy+Math.sin(-midDeg*RAD)*(r+14);
+  ctx.font=`bold ${fontSize||13}px sans-serif`;ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,mx,my);
+}
+
+// ====== TAB 0: 基本 ======
+let rulerSel=0;
+function selRuler(n){rulerSel=n;document.querySelectorAll('#tc0 .btn').forEach((b,i)=>b.classList.toggle('on',i===n));drawRuler();}
+
+function draw306090(ctx, ox, oy, scale, showMirror) {
+  // 30-60-90 三角定規: sides 1 : √3 : 2
+  // 90° (ウ) at bottom-right — clear L-shaped perpendicular corner
+  // 60° (ア) at bottom-left
+  // 30° (イ) at top-right
+  const shortLeg = 140 * scale;             // bottom horizontal: opposite 30°
+  const longLeg = shortLeg * Math.sqrt(3);  // right vertical: opposite 60°
+
+  // Vertices
+  const A = [ox, oy];                           // ア (60°) bottom-left
+  const U = [ox + shortLeg, oy];                 // ウ (90°) bottom-right
+  const I = [ox + shortLeg, oy - longLeg];       // イ (30°) top-right
+
+  drawTri(ctx, [A, U, I], 'rgba(108,92,231,0.15)', '#6c5ce7', 3);
+
+  // ア (60°) at bottom-left: angle between base (→) and hypotenuse (↗)
+  drawArc(ctx, A[0], A[1], 32, 0, 60, '#e74c3c', 3);
+  drawAngleLabel(ctx, A[0], A[1], 48, 30, '60°', '#e74c3c', 15);
+
+  // ウ (90°) at bottom-right: clear right angle with □ mark
+  const ms = 16;
+  ctx.beginPath();
+  ctx.moveTo(U[0] - ms, U[1]);
+  ctx.lineTo(U[0] - ms, U[1] - ms);
+  ctx.lineTo(U[0], U[1] - ms);
+  ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2.5; ctx.stroke();
+  drawAngleLabel(ctx, U[0], U[1], 36, 135, '90°', '#3498db', 14);
+
+  // イ (30°) at top-right: angle between vertical (↓) and hypotenuse (↙)
+  drawArc(ctx, I[0], I[1], 32, 240, 270, '#2ecc71', 3);
+  drawAngleLabel(ctx, I[0], I[1], 48, 255, '30°', '#2ecc71', 15);
+
+  // Side labels
+  ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#6c5ce7'; ctx.textAlign = 'center';
+  ctx.fillText('短い辺', (A[0] + U[0]) / 2, U[1] + 18);
+  ctx.fillText('長い辺', U[0] + 38, (U[1] + I[1]) / 2);
+  ctx.save();
+  const mH = [(A[0] + I[0]) / 2, (A[1] + I[1]) / 2];
+  ctx.translate(mH[0] - 25, mH[1]);
+  ctx.rotate(Math.atan2(I[1] - A[1], I[0] - A[0]));
+  ctx.fillText('斜辺（一番長い）', 0, -12);
+  ctx.restore();
+
+  // Vertex labels
+  ctx.font = 'bold 17px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('ア(60°)', A[0], A[1] + 35);
+  ctx.fillText('ウ(90°)', U[0], U[1] + 35);
+  ctx.fillText('イ(30°)', I[0] + 40, I[1] - 5);
+
+  // Mirror hint → 長方形 (rectangle)
+  if (showMirror) {
+    // Mirror triangle across hypotenuse → rectangle
+    const A2 = [ox + shortLeg + shortLeg, oy]; // mirror ア across vertical at ウ
+    const I2 = [ox + shortLeg + shortLeg, oy - longLeg];
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(I[0], I[1]); ctx.lineTo(I2[0], I2[1]);
+    ctx.lineTo(A2[0], A2[1]); ctx.lineTo(U[0], U[1]);
+    ctx.stroke();
+    // Diagonal of mirrored
+    ctx.beginPath();
+    ctx.moveTo(A2[0], A2[1]); ctx.lineTo(I[0], I[1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '12px sans-serif'; ctx.fillStyle = '#999'; ctx.textAlign = 'center';
+    ctx.fillText('2まいならべると長方形になります', (A[0] + A2[0]) / 2, I[1] - 16);
+  }
+}
+
+function draw454590(ctx, ox, oy, scale, showMirror) {
+  // Correct 45-45-90 triangle: sides ratio 1 : 1 : √2
+  // Right angle at top, 45° at each bottom corner
+  const hyp = 280 * scale;
+  const leg = hyp / Math.sqrt(2);
+
+  // Altitude from right-angle vertex to hypotenuse = hyp/2
+  const h = hyp / 2;
+
+  // Vertices (right angle at top, midpoint above base)
+  const E = [ox, oy];                   // エ (45°) bottom-left
+  const KA = [ox + hyp, oy];            // カ (90°) bottom-right... wait
+
+  // Actually for 45-45-90, right angle at top, both base angles = 45°
+  const mid = ox + hyp / 2;
+  const O_pt = [mid, oy - h];           // オ or カ (90°) top
+
+  // But the standard Japanese 45-45-90 ruler is often shown with right angle at a corner (not top)
+  // Let me draw it with right angle at bottom-right, matching common textbook orientation:
+  // エ(45°) bottom-left, オ(45°) top-right, カ(90°) bottom-right
+  const legLen = 200 * scale;
+  const E_pt = [ox, oy];                         // エ (45°) bottom-left
+  const KA_pt = [ox + legLen, oy];                // カ (90°) bottom-right
+  const O2_pt = [ox + legLen, oy - legLen];        // オ (45°) top-right
+
+  drawTri(ctx, [E_pt, KA_pt, O2_pt], 'rgba(0,184,148,0.15)', '#00b894', 3);
+
+  // Angle arcs
+  // エ (45°): angle at bottom-left
+  drawArc(ctx, E_pt[0], E_pt[1], 32, 0, 45, '#e74c3c', 3);
+  drawAngleLabel(ctx, E_pt[0], E_pt[1], 48, 22, '45°', '#e74c3c', 15);
+
+  // カ (90°): angle at bottom-right between horizontal and vertical
+  drawArc(ctx, KA_pt[0], KA_pt[1], 28, 90, 180, '#3498db', 3);
+  // Right angle square
+  ctx.beginPath();
+  ctx.moveTo(KA_pt[0]-14, KA_pt[1]); ctx.lineTo(KA_pt[0]-14, KA_pt[1]-14);
+  ctx.lineTo(KA_pt[0], KA_pt[1]-14);
+  ctx.strokeStyle='#3498db'; ctx.lineWidth=2; ctx.stroke();
+  drawAngleLabel(ctx, KA_pt[0], KA_pt[1], 42, 135, '90°', '#3498db', 15);
+
+  // オ (45°): angle at top-right
+  drawArc(ctx, O2_pt[0], O2_pt[1], 32, 225, 270, '#2ecc71', 3);
+  drawAngleLabel(ctx, O2_pt[0], O2_pt[1], 48, 248, '45°', '#2ecc71', 15);
+
+  // Side labels
+  ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = '#00b894'; ctx.textAlign = 'center';
+  ctx.fillText('底辺', (E_pt[0]+KA_pt[0])/2, E_pt[1] + 20);
+  ctx.fillText('たて辺', KA_pt[0] + 35, (KA_pt[1]+O2_pt[1])/2);
+  ctx.save();
+  ctx.translate((E_pt[0]+O2_pt[0])/2 - 25, (E_pt[1]+O2_pt[1])/2);
+  ctx.rotate(-Math.PI/4);
+  ctx.fillText('斜辺（一番長い）', 0, 0);
+  ctx.restore();
+
+  // Vertex labels
+  ctx.font = 'bold 18px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center';
+  ctx.fillText('エ(45°)', E_pt[0] + 5, E_pt[1] + 40);
+  ctx.fillText('カ(90°)', KA_pt[0] + 5, KA_pt[1] + 40);
+  ctx.fillText('オ(45°)', O2_pt[0] + 30, O2_pt[1] - 10);
+
+  // Mirror hint (square)
+  if (showMirror) {
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(E_pt[0], E_pt[1]); ctx.lineTo(E_pt[0], O2_pt[1]);
+    ctx.lineTo(O2_pt[0], O2_pt[1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '12px sans-serif'; ctx.fillStyle = '#aaa'; ctx.textAlign = 'center';
+    ctx.fillText('2まいならべると正方形になります', (E_pt[0]+KA_pt[0])/2, O2_pt[1] - 20);
+  }
+}
+
+function drawRuler(){
+  const cv=document.getElementById('c0'),ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const exp=document.getElementById('exp0');
+
+  if(rulerSel===0){
+    draw306090(ctx, 130, 370, 1.1, true);
+  } else if(rulerSel===1){
+    draw454590(ctx, 180, 370, 1.2, true);
+  } else {
+    // Side by side (no overlap)
+    draw306090(ctx, 40, 380, 0.85, true);
+    draw454590(ctx, 470, 380, 0.85, true);
+  }
+
+  if(rulerSel===0){
+    exp.innerHTML=`
+      <div class="step"><span class="sn">1</span> この三角定規は <b>30°, 60°, 90°</b> の3つの角度を持っています</div>
+      <div class="step"><span class="sn">2</span> 3つの角度を足すと: 30° + 60° + 90° = <b>180°</b>（三角形の内角の和）</div>
+      <div class="step"><span class="sn">💡</span> この定規を2まい合わせると <b>長方形</b>（短い辺×長い辺）ができます！</div>`;
+  }else if(rulerSel===1){
+    exp.innerHTML=`
+      <div class="step"><span class="sn">1</span> この三角定規は <b>45°, 45°, 90°</b> の3つの角度を持っています</div>
+      <div class="step"><span class="sn">2</span> 3つの角度を足すと: 45° + 45° + 90° = <b>180°</b>（三角形の内角の和）</div>
+      <div class="step"><span class="sn">💡</span> この定規を2まい合わせると <b>正方形</b>（90°×4）ができます！</div>`;
+  }else{
+    exp.innerHTML=`
+      <div class="step"><span class="sn">比</span> 2つの三角定規を並べて比べてみよう！</div>
+      <div class="step"><span class="sn">①</span> <b style="color:#6c5ce7">左（紫）</b>: 30° + 60° + 90° = 180° → 2枚で長方形</div>
+      <div class="step"><span class="sn">②</span> <b style="color:#00b894">右（緑）</b>: 45° + 45° + 90° = 180° → 2枚で正方形</div>
+      <div class="step"><span class="sn">💡</span> どちらも直角（90°）を持つのが三角定規の特ちょうです！</div>`;
+  }
+}
+
+// ====== TAB 1: 組み合わせ ======
+let curQ=0,freeRot=0;
+const questions=[
+  {a1:30,a2:45,op:'+',label:'30° + 45°',result:75,
+   r1tri:'306090',r1use:30, r2tri:'454590',r2use:45,
+   desc:'30°と45°が隣り合うように置くと、2つの角度を<b>足した</b>角度ができます'},
+  {a1:60,a2:45,op:'+',label:'60° + 45°',result:105,
+   r1tri:'306090',r1use:60, r2tri:'454590',r2use:45,
+   desc:'60°と45°が隣り合うように置くと、<b>105°</b>（鈍角）ができます'},
+  {a1:60,a2:90,op:'+',label:'60° + 90°',result:150,
+   r1tri:'306090',r1use:60, r2tri:'454590',r2use:90,
+   desc:'60°と90°を足すと<b>150°</b>。かなり大きい角度が作れます'},
+  {a1:45,a2:30,op:'-',label:'45° − 30°',result:15,
+   r1tri:'454590',r1use:45, r2tri:'306090',r2use:30,
+   desc:'45°の中に30°を重ねると、差の<b>15°</b>（とても小さい角度）ができます'},
+];
+
+// Draw a proper right-triangle ruler at given vertex
+// triType: '306090' or '454590', useAngle: angle at vertex
+// startDeg: direction of first side from vertex
+function drawRulerShape(ctx,cx,cy,startDeg,useAngle,triType,k,strokeColor,fillColor,label){
+  let sideAB,sideAC,rightAt; // rightAt: 'B','C','A'
+  if(triType==='306090'){
+    if(useAngle===30){sideAB=2*k;sideAC=Math.sqrt(3)*k;rightAt='C';}
+    else if(useAngle===60){sideAB=2*k;sideAC=k;rightAt='C';}
+    else{sideAB=Math.sqrt(3)*k;sideAC=k;rightAt='A';}
+  }else{
+    if(useAngle===45){sideAB=k;sideAC=Math.sqrt(2)*k;rightAt='B';}
+    else{sideAB=k;sideAC=k;rightAt='A';}
+  }
+  const endDeg=startDeg+useAngle;
+  const B=[cx+sideAB*Math.cos(startDeg*RAD),cy-sideAB*Math.sin(startDeg*RAD)];
+  const C=[cx+sideAC*Math.cos(endDeg*RAD),cy-sideAC*Math.sin(endDeg*RAD)];
+  drawTri(ctx,[[cx,cy],B,C],fillColor,strokeColor,2.5);
+
+  // Right angle □ mark
+  const ms=12;
+  let rv,o1,o2;
+  if(rightAt==='B'){rv=B;o1=[cx,cy];o2=C;}
+  else if(rightAt==='C'){rv=C;o1=[cx,cy];o2=B;}
+  else{rv=null;}
+  if(rv){
+    const dx1=o1[0]-rv[0],dy1=o1[1]-rv[1],d1=Math.sqrt(dx1*dx1+dy1*dy1);
+    const ux1=dx1/d1,uy1=dy1/d1;
+    const dx2=o2[0]-rv[0],dy2=o2[1]-rv[1],d2=Math.sqrt(dx2*dx2+dy2*dy2);
+    const ux2=dx2/d2,uy2=dy2/d2;
+    ctx.beginPath();
+    ctx.moveTo(rv[0]+ux1*ms,rv[1]+uy1*ms);
+    ctx.lineTo(rv[0]+ux1*ms+ux2*ms,rv[1]+uy1*ms+uy2*ms);
+    ctx.lineTo(rv[0]+ux2*ms,rv[1]+uy2*ms);
+    ctx.strokeStyle=strokeColor;ctx.lineWidth=1.5;ctx.stroke();
+  }
+
+  // Label OUTSIDE triangle — along the hypotenuse (longest side BC)
+  const midBCx=(B[0]+C[0])/2, midBCy=(B[1]+C[1])/2;
+  // Normal direction pointing away from vertex A (cx,cy)
+  let nx=midBCx-cx, ny=midBCy-cy;
+  const nd=Math.sqrt(nx*nx+ny*ny); nx/=nd; ny/=nd;
+  const lx=midBCx+nx*18, ly=midBCy+ny*18;
+  ctx.font='bold 13px sans-serif';ctx.fillStyle=strokeColor;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(label,lx,ly);
+  ctx.textBaseline='alphabetic';
+}
+
+function selQ(n){
+  curQ=n;
+  document.querySelectorAll('#tc1 .btn').forEach((b,i)=>b.classList.toggle('on',i===n));
+  document.getElementById('freeSlider').style.display=n===4?'block':'none';
+  drawCombo();
+}
+
+function onFreeAngle(){
+  freeRot=parseInt(document.getElementById('freeAngle').value);
+  document.getElementById('freeAngleLabel').textContent=freeRot+'°';
+  drawCombo();
+}
+
+function drawCombo(){
+  const cv=document.getElementById('c1'),ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  const cx=400,baseY=420;
+
+  if(curQ===4){
+    drawFreeMode(ctx,cx,baseY);
+    return;
+  }
+
+  const q=questions[curQ];
+  const isAdd=q.op==='+';
+  const k=115; // scale factor for triangle sides
+
+  // Draw base line
+  ctx.strokeStyle='#ccc';ctx.lineWidth=1;ctx.setLineDash([5,3]);
+  ctx.beginPath();ctx.moveTo(80,baseY);ctx.lineTo(720,baseY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='11px sans-serif';ctx.fillStyle='#aaa';ctx.textAlign='right';
+  ctx.fillText('基準線 0°',718,baseY+16);
+
+  if(isAdd){
+    // ===== ADDITION MODE =====
+    // Ruler① proper right triangle shape
+    drawRulerShape(ctx,cx,baseY,0,q.a1,q.r1tri,k,'#6c5ce7','rgba(108,92,231,0.18)','定規①');
+
+    // Ruler① angle arc
+    drawArc(ctx,cx,baseY,30,0,q.a1,'#6c5ce7',3);
+    drawAngleLabel(ctx,cx,baseY,44,q.a1/2,q.a1+'°','#6c5ce7',15);
+
+    // Ruler② proper right triangle shape (rotated by a1°)
+    drawRulerShape(ctx,cx,baseY,q.a1,q.a2,q.r2tri,k,'#00b894','rgba(0,184,148,0.18)','定規②');
+
+    // Ruler② angle arc
+    const startAngle=q.a1,endAngle=q.a1+q.a2;
+    drawArc(ctx,cx,baseY,50,startAngle,endAngle,'#00b894',3);
+    drawAngleLabel(ctx,cx,baseY,64,startAngle+q.a2/2,q.a2+'°','#00b894',15);
+
+    // === ROTATION ANGLE of ruler② (orange dashed arc) ===
+    ctx.setLineDash([4,4]);
+    drawArc(ctx,cx,baseY,160,0,q.a1,'#ff9800',2.5);
+    ctx.setLineDash([]);
+    drawAngleLabel(ctx,cx,baseY,178,q.a1/2,'回転 '+q.a1+'°','#ff9800',13);
+    // Dots at arc ends
+    const rd1=cx+162,rd1y=baseY;
+    const rd2x=cx+162*Math.cos(q.a1*RAD),rd2y=baseY-162*Math.sin(q.a1*RAD);
+    ctx.fillStyle='#ff9800';
+    ctx.beginPath();ctx.arc(rd1,rd1y,4,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(rd2x,rd2y,4,0,Math.PI*2);ctx.fill();
+
+    // === RESULT angle (combined red arc) ===
+    drawArc(ctx,cx,baseY,120,0,q.result,'#c62828',4);
+    drawAngleLabel(ctx,cx,baseY,140,q.result/2,'= '+q.result+'°','#c62828',18);
+
+    // Update info cards
+    document.getElementById('q_rot').textContent=q.a1;
+    document.getElementById('q_overlap').textContent='—';
+    document.getElementById('q_overlap').parentElement.querySelector('.lbl').textContent='重なる辺の角度';
+
+  } else {
+    // ===== SUBTRACTION MODE =====
+    // Ruler① (larger angle, 45°) proper right triangle
+    drawRulerShape(ctx,cx,baseY,0,q.a1,q.r1tri,k,'#6c5ce7','rgba(108,92,231,0.18)','定規①');
+    drawArc(ctx,cx,baseY,45,0,q.a1,'#6c5ce7',3);
+    drawAngleLabel(ctx,cx,baseY,60,q.a1/2,q.a1+'°','#6c5ce7',15);
+
+    // Ruler② (smaller angle, 30°) overlapping, slightly smaller
+    drawRulerShape(ctx,cx,baseY,0,q.a2,q.r2tri,k*0.82,'#00b894','rgba(0,184,148,0.15)','定規②');
+    drawArc(ctx,cx,baseY,30,0,q.a2,'#00b894',3);
+    drawAngleLabel(ctx,cx,baseY,18,q.a2/2,q.a2+'°','#00b894',13);
+
+    // === OVERLAPPING ANGLE highlight ===
+    ctx.fillStyle='rgba(255,152,0,0.13)';
+    ctx.beginPath();ctx.moveTo(cx,baseY);
+    ctx.arc(cx,baseY,k*1.05,0,-q.a2*RAD,true);
+    ctx.closePath();ctx.fill();
+    ctx.setLineDash([3,3]);
+    drawArc(ctx,cx,baseY,k*1.05,0,q.a2,'#ff9800',2.5);
+    ctx.setLineDash([]);
+    const ovMid=q.a2/2,ovR=k*1.18;
+    ctx.font='bold 12px sans-serif';ctx.fillStyle='#e65100';ctx.textAlign='center';
+    ctx.fillText('重なり '+q.a2+'°',cx+ovR*Math.cos(ovMid*RAD),baseY-ovR*Math.sin(ovMid*RAD));
+
+    // === GAP (result) angle highlight ===
+    ctx.fillStyle='rgba(198,40,40,0.15)';
+    ctx.beginPath();ctx.moveTo(cx,baseY);
+    ctx.arc(cx,baseY,k*1.35,-(q.a1)*RAD,-(q.a2)*RAD);
+    ctx.closePath();ctx.fill();
+    drawArc(ctx,cx,baseY,k*1.35,q.a2,q.a1,'#c62828',4);
+    drawAngleLabel(ctx,cx,baseY,k*1.5,(q.a2+q.a1)/2,'= '+q.result+'°','#c62828',18);
+
+    // Update info cards
+    document.getElementById('q_rot').textContent='0';
+    document.getElementById('q_overlap').textContent=q.a2;
+    document.getElementById('q_overlap').parentElement.querySelector('.lbl').textContent='重なった角度';
+  }
+
+  // Legend (top-left)
+  ctx.font='bold 13px sans-serif';ctx.textAlign='left';
+  ctx.fillStyle='#6c5ce7';ctx.fillText('▲ 定規① (30-60-90)',50,26);
+  ctx.fillStyle='#00b894';ctx.fillText('▲ 定規② (45-45-90)',50,46);
+  ctx.fillStyle='#ff9800';ctx.fillText('◯ '+(isAdd?'回転角度 = '+q.a1+'°':'重なった角度 = '+q.a2+'°'),50,66);
+  ctx.fillStyle='#c62828';ctx.fillText('★ できた角度 = '+q.result+'°',50,86);
+
+  // Update info cards
+  document.getElementById('q_a1').textContent=q.a1;
+  document.getElementById('q_a2').textContent=q.a2;
+  document.getElementById('q_formula').textContent=q.label;
+  document.getElementById('q_result').textContent=q.result;
+
+  document.getElementById('exp1').innerHTML=`
+    <div class="step"><span class="sn">1</span> ${q.desc}</div>
+    <div class="step"><span class="sn">2</span> 計算: <b>${q.label} = ${q.result}°</b></div>
+    ${isAdd
+      ?`<div class="step"><span class="sn">🔄</span> 定規②を基準線から <b style="color:#ff9800">${q.a1}°回転</b> させて、定規①の辺に重ねます</div>`
+      :`<div class="step"><span class="sn">🔄</span> 2枚の三角定規が <b style="color:#e65100">${q.a2}°重なり</b>、すき間が <b style="color:#c62828">${q.result}°</b> です</div>`}
+    <div class="step"><span class="sn">💡</span> 三角定規の組み合わせで作れる角度: <b>15°, 75°, 105°, 120°, 135°, 150°</b> など色々あるよ！</div>`;
+}
+
+function drawFreeMode(ctx,cx,baseY){
+  const k=105;
+  // Base line
+  ctx.strokeStyle='#ccc';ctx.lineWidth=1;ctx.setLineDash([5,3]);
+  ctx.beginPath();ctx.moveTo(50,baseY);ctx.lineTo(750,baseY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='11px sans-serif';ctx.fillStyle='#aaa';ctx.textAlign='right';
+  ctx.fillText('基準線 0°',748,baseY+16);
+
+  // Ruler① fixed: 30-60-90, 30° at bottom — proper right triangle
+  const r1Angle=30;
+  drawRulerShape(ctx,cx,baseY,0,r1Angle,'306090',k,'#6c5ce7','rgba(108,92,231,0.18)','定規①');
+  drawArc(ctx,cx,baseY,30,0,r1Angle,'#6c5ce7',3);
+  drawAngleLabel(ctx,cx,baseY,44,r1Angle/2,'30°','#6c5ce7',14);
+
+  // Ruler② freely rotated: 45-45-90, 45° — proper right triangle
+  const r2Angle=45;
+  const startA=freeRot;
+  const endA=freeRot+r2Angle;
+  drawRulerShape(ctx,cx,baseY,startA,r2Angle,'454590',k,'#00b894','rgba(0,184,148,0.18)','定規②');
+  drawArc(ctx,cx,baseY,50,startA,endA,'#00b894',3);
+  drawAngleLabel(ctx,cx,baseY,64,(startA+endA)/2,'45°','#00b894',14);
+
+  // === ROTATION ANGLE of ruler② ===
+  if(freeRot>0){
+    ctx.setLineDash([4,4]);
+    drawArc(ctx,cx,baseY,115,0,freeRot,'#ff9800',2.5);
+    ctx.setLineDash([]);
+    drawAngleLabel(ctx,cx,baseY,132,freeRot/2,'回転 '+freeRot+'°','#ff9800',12);
+    const rdx=cx+117*Math.cos(freeRot*RAD),rdy=baseY-117*Math.sin(freeRot*RAD);
+    ctx.beginPath();ctx.arc(rdx,rdy,4,0,Math.PI*2);ctx.fillStyle='#ff9800';ctx.fill();
+  }
+
+  // === OVERLAP / GAP analysis ===
+  // Ruler① covers 0°~30°, Ruler② covers freeRot°~(freeRot+45)°
+  const r1Start=0, r1End=30, r2Start=freeRot, r2End=freeRot+45;
+  const overlapStart=Math.max(r1Start,r2Start);
+  const overlapEnd=Math.min(r1End,r2End);
+  const overlapAngle=Math.max(0,overlapEnd-overlapStart);
+
+  // Combined span
+  const totalStart=Math.min(r1Start,r2Start);
+  const totalEnd=Math.max(r1End,r2End);
+  const totalSpan=totalEnd-totalStart;
+
+  // Draw overlap highlight if exists
+  if(overlapAngle>0){
+    ctx.fillStyle='rgba(255,152,0,0.15)';
+    ctx.beginPath();ctx.moveTo(cx,baseY);
+    ctx.arc(cx,baseY,len*0.5,-overlapEnd*RAD,-overlapStart*RAD);
+    ctx.closePath();ctx.fill();
+    ctx.setLineDash([3,3]);
+    drawArc(ctx,cx,baseY,len*0.5,overlapStart,overlapEnd,'#e65100',2);
+    ctx.setLineDash([]);
+    const ovMid=(overlapStart+overlapEnd)/2;
+    ctx.font='bold 11px sans-serif';ctx.fillStyle='#e65100';ctx.textAlign='center';
+    ctx.fillText('重なり '+overlapAngle+'°',cx+(len*0.56)*Math.cos(ovMid*RAD),baseY-(len*0.56)*Math.sin(ovMid*RAD));
+  }
+
+  // Draw combined angle span
+  if(totalSpan>0 && totalEnd<=360){
+    drawArc(ctx,cx,baseY,88,totalStart,totalEnd,'#c62828',3);
+    drawAngleLabel(ctx,cx,baseY,106,(totalStart+totalEnd)/2,'全体 '+totalSpan+'°','#c62828',14);
+  }
+
+  // Gap between rulers (if ruler② is beyond ruler①)
+  const gapAngle=Math.max(0,r2Start-r1End);
+
+  // Header
+  ctx.font='bold 13px sans-serif';ctx.fillStyle='#888';ctx.textAlign='center';
+  ctx.fillText('スライダーで定規②を回転させてみよう！',400,28);
+
+  // Legend
+  ctx.font='bold 12px sans-serif';ctx.textAlign='left';
+  ctx.fillStyle='#ff9800';ctx.fillText('回転: '+freeRot+'°',50,28);
+  if(overlapAngle>0) {ctx.fillStyle='#e65100';ctx.fillText('重なり: '+overlapAngle+'°',50,46);}
+  else if(gapAngle>0) {ctx.fillStyle='#c62828';ctx.fillText('すき間: '+gapAngle+'°',50,46);}
+
+  // Update info cards
+  document.getElementById('q_a1').textContent='30';
+  document.getElementById('q_a2').textContent='45';
+  document.getElementById('q_rot').textContent=freeRot;
+
+  if(overlapAngle>0){
+    document.getElementById('q_overlap').textContent=overlapAngle;
+    document.getElementById('q_overlap').parentElement.querySelector('.lbl').textContent='重なった角度';
+    document.getElementById('q_formula').textContent='全体 '+totalSpan+'°';
+    document.getElementById('q_result').textContent=totalSpan;
+  }else{
+    document.getElementById('q_overlap').textContent='0';
+    document.getElementById('q_overlap').parentElement.querySelector('.lbl').textContent='重なった角度';
+    if(gapAngle>0){
+      document.getElementById('q_formula').textContent='すき間 '+gapAngle+'°';
+    }else{
+      document.getElementById('q_formula').textContent='全体 '+totalSpan+'°';
+    }
+    document.getElementById('q_result').textContent=totalSpan;
+  }
+
+  document.getElementById('exp1').innerHTML=`
+    <div class="step"><span class="sn">🔄</span> 定規②を自由に回転させて、いろいろな角度を作ってみよう！</div>
+    <div class="step"><span class="sn">🔄</span> 定規②の<b style="color:#ff9800">回転角度: ${freeRot}°</b>
+      ${overlapAngle>0?` / <b style="color:#e65100">重なり: ${overlapAngle}°</b>`:''}
+      ${gapAngle>0?` / <b style="color:#c62828">すき間: ${gapAngle}°</b>`:''}
+    </div>
+    <div class="step"><span class="sn">💡</span> 30°にぴったり合わせると <b>75°</b>、0°で最大重なり <b>30°</b>、60°に合わせると <b>105°</b> ができるよ</div>`;
+}
+
+// ====== TAB 2: 紙の折り返し ======
+function drawFold(){
+  const cv=document.getElementById('c2'),ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  const foldDeg=parseInt(document.getElementById('foldAngle').value);
+  document.getElementById('foldLabel').textContent=foldDeg+'°';
+  const reflectedAngle=foldDeg*2;
+  const remaining=180-reflectedAngle;
+
+  // Paper rectangle
+  const cx=300,cy=340; // fold point on bottom edge
+  const paperL=cx-160,paperR=cx+240,paperT=cy-190;
+  const paperH=cy-paperT;
+
+  // Reflect a point across the fold line (canvas coords)
+  function refPt(px,py){
+    const dx=px-cx,dy=py-cy;
+    const a2=2*foldDeg*RAD;
+    return[cx+dx*Math.cos(a2)-dy*Math.sin(a2),cy-dx*Math.sin(a2)-dy*Math.cos(a2)];
+  }
+
+  // Where fold line exits the paper
+  const tanF=Math.tan(foldDeg*RAD);
+  const x_top=cx+paperH/tanF;
+  const y_right=cy-(paperR-cx)*tanF;
+
+  let flapPts,foldEnd;
+  if(x_top<=paperR){
+    foldEnd=[x_top,paperT];
+    flapPts=[[cx,cy],[paperR,cy],[paperR,paperT],[x_top,paperT]];
+  }else{
+    foldEnd=[paperR,Math.max(paperT,y_right)];
+    flapPts=[[cx,cy],[paperR,cy],[paperR,Math.max(paperT,y_right)]];
+  }
+  const refFlap=flapPts.map(p=>refPt(p[0],p[1]));
+
+  // ===== 1. PAPER background =====
+  ctx.fillStyle='#faf6ee';
+  ctx.strokeStyle='#c8bfa8';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.rect(paperL,paperT,paperR-paperL,paperH);ctx.fill();ctx.stroke();
+  // Paper texture
+  ctx.strokeStyle='rgba(200,191,168,0.25)';ctx.lineWidth=0.5;
+  for(let y=paperT+30;y<cy;y+=30){ctx.beginPath();ctx.moveTo(paperL+5,y);ctx.lineTo(paperR-5,y);ctx.stroke();}
+  ctx.font='12px sans-serif';ctx.fillStyle='#c8bfa8';ctx.textAlign='left';
+  ctx.fillText('紙',paperL+8,paperT+20);
+
+  // ===== 2. FLAP original position (dashed outline) =====
+  ctx.setLineDash([5,4]);ctx.strokeStyle='#ccc';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(flapPts[0][0],flapPts[0][1]);
+  for(let i=1;i<flapPts.length;i++)ctx.lineTo(flapPts[i][0],flapPts[i][1]);
+  ctx.closePath();ctx.stroke();ctx.setLineDash([]);
+  const fcx=flapPts.reduce((s,p)=>s+p[0],0)/flapPts.length;
+  const fcy=flapPts.reduce((s,p)=>s+p[1],0)/flapPts.length;
+  ctx.font='11px sans-serif';ctx.fillStyle='#ccc';ctx.textAlign='center';
+  ctx.fillText('もとの位置',fcx,fcy);
+
+  // ===== 3. REFLECTED (folded) FLAP =====
+  ctx.fillStyle='rgba(108,92,231,0.22)';ctx.strokeStyle='#6c5ce7';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(refFlap[0][0],refFlap[0][1]);
+  for(let i=1;i<refFlap.length;i++)ctx.lineTo(refFlap[i][0],refFlap[i][1]);
+  ctx.closePath();ctx.fill();ctx.stroke();
+  const rcx=refFlap.reduce((s,p)=>s+p[0],0)/refFlap.length;
+  const rcy=refFlap.reduce((s,p)=>s+p[1],0)/refFlap.length;
+  ctx.font='bold 12px sans-serif';ctx.fillStyle='#6c5ce7';ctx.textAlign='center';
+  ctx.fillText('折った紙',rcx,rcy);
+
+  // ===== 4. FOLD LINE (red dashed) =====
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(foldEnd[0],foldEnd[1]);
+  ctx.strokeStyle='#c62828';ctx.lineWidth=3;ctx.setLineDash([8,5]);ctx.stroke();ctx.setLineDash([]);
+
+  // ===== 5. BOTTOM EDGE =====
+  ctx.strokeStyle='#333';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(paperL,cy);ctx.lineTo(cx,cy);ctx.stroke();
+  ctx.strokeStyle='#bbb';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(paperR,cy);ctx.stroke();ctx.setLineDash([]);
+
+  // ===== 6. REFLECTED BOTTOM EDGE (折り返した辺) =====
+  const B_ref=refPt(paperR,cy);
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(B_ref[0],B_ref[1]);
+  ctx.strokeStyle='#6c5ce7';ctx.lineWidth=3;ctx.stroke();
+
+  // ===== 7. CURVED ARROW =====
+  const arR=60;
+  ctx.strokeStyle='#999';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.arc(cx,cy,arR,-3*RAD,-(reflectedAngle-3)*RAD,true);ctx.stroke();ctx.setLineDash([]);
+  const ax1=cx+(arR-6)*Math.cos(reflectedAngle*RAD),ay1=cy-(arR-6)*Math.sin(reflectedAngle*RAD);
+  const ax2=cx+(arR+6)*Math.cos(reflectedAngle*RAD),ay2=cy-(arR+6)*Math.sin(reflectedAngle*RAD);
+  const ax3=cx+arR*Math.cos((reflectedAngle+5)*RAD),ay3=cy-arR*Math.sin((reflectedAngle+5)*RAD);
+  ctx.fillStyle='#999';ctx.beginPath();ctx.moveTo(ax1,ay1);ctx.lineTo(ax2,ay2);ctx.lineTo(ax3,ay3);ctx.closePath();ctx.fill();
+  ctx.font='11px sans-serif';ctx.fillStyle='#999';ctx.textAlign='center';
+  ctx.fillText('折る',cx+arR+16,cy-10);
+
+  // ===== 8. FOLD POINT =====
+  ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle='#c62828';ctx.fill();
+
+  // ===== 9. ANGLE ARCS =====
+  drawArc(ctx,cx,cy,35,0,foldDeg,'#c62828',3);
+  drawAngleLabel(ctx,cx,cy,50,foldDeg/2,foldDeg+'°','#c62828',15);
+
+  drawArc(ctx,cx,cy,50,foldDeg,reflectedAngle,'#e65100',3);
+  drawAngleLabel(ctx,cx,cy,65,foldDeg+foldDeg/2,foldDeg+'°','#e65100',14);
+
+  ctx.font='bold 16px sans-serif';ctx.fillStyle='#e65100';ctx.textAlign='center';
+  const eqX=cx+44*Math.cos(foldDeg*RAD),eqY=cy-44*Math.sin(foldDeg*RAD);
+  ctx.fillText('=',eqX,eqY);
+
+  drawArc(ctx,cx,cy,78,0,reflectedAngle,'#6c5ce7',3.5);
+  drawAngleLabel(ctx,cx,cy,96,reflectedAngle/2,reflectedAngle+'°','#6c5ce7',17);
+
+  if(remaining>0){
+    drawArc(ctx,cx,cy,55,reflectedAngle,180,'#00b894',3);
+    drawAngleLabel(ctx,cx,cy,72,(reflectedAngle+180)/2,remaining+'°','#00b894',14);
+  }
+
+  // ===== 10. LINE LABELS =====
+  ctx.font='bold 13px sans-serif';
+  ctx.fillStyle='#c62828';ctx.textAlign='left';ctx.fillText('折り線',foldEnd[0]+8,foldEnd[1]-5);
+  ctx.fillStyle='#6c5ce7';ctx.textAlign='center';
+  const rlx=(cx+B_ref[0])/2,rly=(cy+B_ref[1])/2;
+  ctx.fillText('折り返した辺',rlx+(reflectedAngle>70?-50:20),rly-14);
+  ctx.fillStyle='#333';ctx.textAlign='center';ctx.fillText('底辺',paperL+(cx-paperL)/2,cy+20);
+
+  // ===== 11. LEGEND =====
+  ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillRect(578,8,215,108);
+  ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.strokeRect(578,8,215,108);
+  ctx.font='bold 11px sans-serif';ctx.textAlign='left';
+  ctx.fillStyle='#faf6ee';ctx.fillRect(588,16,14,10);ctx.strokeStyle='#c8bfa8';ctx.strokeRect(588,16,14,10);
+  ctx.fillStyle='#333';ctx.fillText('紙（もとの形）',608,26);
+  ctx.fillStyle='#bbb';ctx.fillText('┄ 折る前の位置',588,44);
+  ctx.fillStyle='#c62828';ctx.fillText('┄ 折り線（鏡）',588,60);
+  ctx.fillStyle='#6c5ce7';ctx.fillText('━ 折り返した辺',588,76);
+  ctx.fillStyle='rgba(108,92,231,0.35)';ctx.fillRect(588,86,14,12);ctx.strokeStyle='#6c5ce7';ctx.lineWidth=1;ctx.strokeRect(588,86,14,12);
+  ctx.fillStyle='#6c5ce7';ctx.fillText('折った紙',608,97);
+  ctx.fillStyle='#00b894';ctx.fillText('━ 残りの角度',588,113);
+
+  // ===== 12. KEY INSIGHT =====
+  ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillStyle='#c62828';
+  ctx.fillText('折り線が「鏡」→ 両側の角度が同じ！',400,cy+50);
+
+  // Update info
+  document.getElementById('fold_a').textContent=foldDeg;
+  document.getElementById('fold_b').textContent=reflectedAngle;
+  document.getElementById('fold_c').textContent=remaining;
+  document.getElementById('fold_rule').textContent='折り線×2';
+
+  document.getElementById('exp2').innerHTML=`
+    <div class="step"><span class="sn">1</span> 紙の右側を <b style="color:#c62828">折り線（${foldDeg}°）</b> にそって折り返します</div>
+    <div class="step"><span class="sn">2</span> 折り線は<b>鏡</b>の役割：折り線の両側に <b style="color:#c62828">${foldDeg}°</b> <b style="color:#e65100">= ${foldDeg}°</b> の同じ角度ができます</div>
+    <div class="step"><span class="sn">3</span> だから底辺と折り返した辺の角度は: <b>${foldDeg}° + ${foldDeg}° = <span style="color:#6c5ce7">${reflectedAngle}°</span></b></div>
+    <div class="step"><span class="sn">4</span> 残りの角度: 180° − ${reflectedAngle}° = <b style="color:#00b894">${remaining}°</b></div>
+    <div class="step"><span class="sn">💡</span> <b>法則: 折り返した角度 = 折り線の角度 × 2</b>（折り線が鏡だから！）</div>`;
+}
+
+// ====== INIT ======
+drawRuler();
+</script>
+</body>
+</html>
