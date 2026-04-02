@@ -69,11 +69,11 @@ canvas{display:block;border-radius:12px;background:#fafbff;border:2px solid #eee
   <div class="btns">
     <button class="btn on" onclick="selSeq(0)">（1）+2ずつ</button>
     <button class="btn" onclick="selSeq(1)">（2）×2ずつ</button>
-    <button class="btn" onclick="selSeq(2)">（3）階段の数</button>
-    <button class="btn" onclick="selSeq(3)">（4）四角い数</button>
-    <button class="btn" onclick="selSeq(4)">（5）足し算の数</button>
+    <button class="btn" onclick="selSeq(2)">（3）三角数 △</button>
+    <button class="btn" onclick="selSeq(3)">（4）四角数 □</button>
+    <button class="btn" onclick="selSeq(4)">（5）うずまきの数 🌀</button>
   </div>
-  <canvas id="c0" width="900" height="380"></canvas>
+  <canvas id="c0" width="900" height="400"></canvas>
   <div class="exp" id="exp0"></div>
 </div>
 
@@ -144,7 +144,7 @@ const sequences=[
     blankIdx:4, answer:15,
     rule:'差が+1ずつ増える',
     color:'#00b894',
-    desc:'差が <b>2, 3, 4, 5, 6...</b> と1ずつ増えていく数列です。三角形に並べた数になります。',
+    desc:'差が <b>2, 3, 4, 5, 6...</b> と1ずつ増えていく数列です。ピラミッド（階段）の形に並べた数になります △',
     getOp:function(i){return '+'+(i+2)},
     type:'tri'
   },
@@ -154,7 +154,7 @@ const sequences=[
     blankIdx:4, answer:25,
     rule:'1², 2², 3², 4²...',
     color:'#e17055',
-    desc:'<b>1×1, 2×2, 3×3, 4×4...</b> と、同じ数を2回かけた数（平方数）の並びです。',
+    desc:'<b>1×1, 2×2, 3×3, 4×4...</b> と、同じ数を2回かけた数（平方数）の並びです。N×Nの正方形の形 □',
     getOp:function(i){return (i+2)+'²'},
     type:'sq'
   },
@@ -164,7 +164,7 @@ const sequences=[
     blankIdx:6, answer:13,
     rule:'前の2つを足す',
     color:'#fdcb6e',
-    desc:'<b>前の2つの数を足す</b>と次の数になります。自然界にもよく出てくる不思議な数列！',
+    desc:'<b>前の2つの数を足す</b>と次の数になります。正方形をつなげると<b>うずまき（黄金螺旋）</b>の形に！ヒマワリの種や巻き貝にも現れます 🌀',
     getOp:function(i){return i>=2?this.nums[i-2]+'+'+this.nums[i-1]:''},
     type:'fib'
   }
@@ -309,20 +309,63 @@ function drawTriangleVis(ctx,nums){
 }
 
 function drawFibVis(ctx,nums){
-  const startX=660,startY=50;
-  ctx.font='bold 11px sans-serif';ctx.fillStyle='#f39c12';ctx.textAlign='center';
-  ctx.fillText('前の2つを足す！',startX+50,startY);
-  for(let k=2;k<6;k++){
-    const oy=startY+12+(k-2)*35;
-    const a=nums[k-2],b=nums[k-1],c=nums[k];
-    ctx.font='bold 14px sans-serif';
-    ctx.fillStyle='#74b9ff';ctx.textAlign='right';ctx.fillText(a,startX+20,oy+14);
-    ctx.fillStyle='#333';ctx.textAlign='center';ctx.fillText('+',startX+35,oy+14);
-    ctx.fillStyle='#74b9ff';ctx.textAlign='left';ctx.fillText(b,startX+48,oy+14);
-    ctx.fillStyle='#333';ctx.textAlign='center';ctx.fillText('=',startX+72,oy+14);
-    ctx.fillStyle='#e74c3c';ctx.font='bold 16px sans-serif';ctx.textAlign='left';
-    ctx.fillText(c,startX+85,oy+15);
-  }
+  // Draw Fibonacci spiral: squares 1,1,2,3,5,8 with quarter-circle arcs
+  const unit=15;
+  const squares=[
+    {x:0,y:0,s:1},{x:1,y:0,s:1},{x:0,y:-2,s:2},
+    {x:-3,y:-2,s:3},{x:-3,y:1,s:5},{x:2,y:-2,s:8}
+  ];
+  const colors=['#74b9ff','#81ecec','#55efc4','#ffeaa7','#fdcb6e','#fab1a0'];
+  const PI=Math.PI;
+
+  // Bounds: -3,-2 to 10,6 = 13x8
+  const minX=-3,minY=-2,maxX=10,maxY=6;
+  const totalW=(maxX-minX)*unit, totalH=(maxY-minY)*unit;
+  const cx=730, cy=160;
+  const offX=cx-totalW/2-minX*unit;
+  const offY=cy-totalH/2-minY*unit;
+
+  ctx.font='bold 11px sans-serif';ctx.fillStyle='#f39c12';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('フィボナッチの うずまき',cx,cy-totalH/2-10);
+
+  // Draw squares with colored fills
+  squares.forEach((sq,i)=>{
+    const px=offX+sq.x*unit, py=offY+sq.y*unit, ps=sq.s*unit;
+    ctx.fillStyle=colors[i]+'55';
+    ctx.fillRect(px,py,ps,ps);
+    ctx.strokeStyle=colors[i];
+    ctx.lineWidth=1.5;
+    ctx.strokeRect(px,py,ps,ps);
+    ctx.font='bold '+Math.max(10,ps/3.2)+'px sans-serif';
+    ctx.fillStyle='#333';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(sq.s,px+ps/2,py+ps/2);
+  });
+
+  // Draw golden spiral: quarter-circle arcs, all CCW (anticlockwise=true)
+  // Chain: (0,0)->(1,1)->(2,0)->(0,-2)->(-3,1)->(2,6)->(10,-2)
+  const arcData=[
+    {cx:1,cy:0,r:1,sa:PI,ea:PI/2},
+    {cx:1,cy:0,r:1,sa:PI/2,ea:0},
+    {cx:0,cy:0,r:2,sa:0,ea:-PI/2},
+    {cx:0,cy:1,r:3,sa:-PI/2,ea:-PI},
+    {cx:2,cy:1,r:5,sa:PI,ea:PI/2},
+    {cx:2,cy:-2,r:8,sa:PI/2,ea:0},
+  ];
+  ctx.strokeStyle='#e74c3c';ctx.lineWidth=2.5;ctx.lineCap='round';
+  arcData.forEach(a=>{
+    ctx.beginPath();
+    ctx.arc(offX+a.cx*unit, offY+a.cy*unit, a.r*unit, a.sa, a.ea, true);
+    ctx.stroke();
+  });
+
+  ctx.textBaseline='alphabetic';ctx.lineCap='butt';
+
+  // Caption
+  const addY=cy+totalH/2+16;
+  ctx.font='bold 10px sans-serif';ctx.fillStyle='#888';ctx.textAlign='center';
+  ctx.fillText('1, 1, 2, 3, 5, 8, 13, 21, ...',cx,addY);
+  ctx.font='9px sans-serif';ctx.fillStyle='#e74c3c';
+  ctx.fillText('正方形をつなげるとうずまきに！',cx,addY+14);
 }
 
 // ====== TAB 1: クイズ ======
